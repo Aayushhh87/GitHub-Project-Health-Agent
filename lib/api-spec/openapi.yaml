@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: GitHub Project Health Agent API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: analysis
+    description: Repository analysis operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /analyze:
+    post:
+      operationId: analyzeRepository
+      tags: [analysis]
+      summary: Analyze a public GitHub repository
+      description: Validates a GitHub repository URL and returns a structured Phase 1 placeholder report.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisRequest"
+      responses:
+        "200":
+          description: Structured placeholder report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReport"
+        "400":
+          description: Invalid repository URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +60,100 @@ components:
           type: string
       required:
         - status
+    AnalysisRequest:
+      type: object
+      properties:
+        repository_url:
+          type: string
+          minLength: 1
+      required:
+        - repository_url
+    RepositoryInfo:
+      type: object
+      properties:
+        url:
+          type: string
+        owner:
+          type: string
+        name:
+          type: string
+      required:
+        - url
+        - owner
+        - name
+    Finding:
+      type: object
+      properties:
+        title:
+          type: string
+        severity:
+          type: string
+          enum: [info, low, medium, high, critical]
+        description:
+          type: string
+        evidence:
+          type: array
+          items:
+            type: string
+      required:
+        - title
+        - severity
+        - description
+        - evidence
+    CategoryScore:
+      type: object
+      properties:
+        category:
+          type: string
+        score:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 100
+        status:
+          type: string
+          enum: [not_started, pending, complete]
+      required:
+        - category
+        - score
+        - status
+    HealthReport:
+      type: object
+      properties:
+        repository:
+          $ref: "#/components/schemas/RepositoryInfo"
+        overall_score:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 100
+        category_scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryScore"
+        summary:
+          type: string
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Finding"
+        recommendations:
+          type: array
+          items:
+            type: string
+        phase:
+          type: string
+      required:
+        - repository
+        - overall_score
+        - category_scores
+        - summary
+        - findings
+        - recommendations
+        - phase
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
 

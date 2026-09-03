@@ -1,0 +1,465 @@
+# GitHub Project Health Agent — Phase 1: Portable Project Foundation
+
+You are the lead software engineer building a serious portfolio project called:
+
+**GitHub Project Health Agent**
+
+The goal is to build an evidence-driven AI-powered system that analyzes a public GitHub repository and produces a Project Health Report.
+
+IMPORTANT:
+This project must remain fully portable. I may stop using Replit at any point and continue development using Claude Code or another coding agent from the same GitHub repository.
+
+Therefore:
+
+## 1. PORTABILITY IS A HARD REQUIREMENT
+
+Do NOT make the application dependent on Replit-specific services or infrastructure unless absolutely necessary.
+
+The application must be runnable outside Replit using standard local development environments.
+
+Use:
+
+* Python
+* FastAPI
+* Next.js
+* TypeScript
+* Tailwind CSS
+* GitHub REST API
+
+Do not introduce unnecessary technologies.
+
+Do NOT add:
+
+* authentication
+* PostgreSQL
+* Redis
+* Celery
+* Kubernetes
+* microservices
+* complex agent frameworks
+* automatic code fixing
+* automatic commits
+* automatic pull requests
+* automatic issue creation
+
+These are outside the MVP scope.
+
+---
+
+# 2. PROJECT STRUCTURE
+
+Create this structure:
+
+github-project-health-agent/
+
+```
+frontend/
+    app/
+    components/
+    lib/
+    types/
+
+backend/
+    app/
+        api/
+            routes/
+        github/
+        analyzer/
+        ai/
+        scoring/
+        models/
+        utils/
+    tests/
+
+docs/
+
+README.md
+.gitignore
+```
+
+The backend and frontend must remain clearly separated.
+
+---
+
+# 3. BACKEND FOUNDATION
+
+Create a FastAPI backend.
+
+Create:
+
+backend/app/main.py
+
+with:
+
+* FastAPI application
+* CORS configuration for local frontend development
+* GET / health endpoint
+* clean application structure
+
+Create:
+
+backend/app/api/routes/analysis.py
+
+Prepare the main endpoint:
+
+POST /api/analyze
+
+Expected request:
+
+{
+"repository_url": "https://github.com/owner/repository"
+}
+
+For now, the endpoint can return a structured placeholder response.
+
+Do NOT implement the entire repository analyzer yet.
+
+The purpose of this phase is to establish a clean architecture.
+
+---
+
+# 4. GITHUB URL VALIDATION
+
+Create a reusable GitHub URL parser/validator.
+
+It must:
+
+* accept normal GitHub repository URLs
+* extract owner
+* extract repository name
+* reject invalid URLs
+* reject non-GitHub URLs
+* handle trailing slashes
+* handle .git suffix if present
+
+Example:
+
+https://github.com/torvalds/linux
+
+should produce:
+
+owner = "torvalds"
+repo = "linux"
+
+Keep this functionality isolated in a reusable module.
+
+---
+
+# 5. GITHUB CLIENT ARCHITECTURE
+
+Create:
+
+backend/app/github/client.py
+
+and
+
+backend/app/github/repository.py
+
+The GitHub client should use standard HTTP requests through `httpx`.
+
+Prepare the architecture for:
+
+* repository metadata
+* repository tree
+* individual file contents
+
+Do not download arbitrary repositories using shell commands.
+
+Use the GitHub REST API.
+
+The GitHub API token, if later required, must come from an environment variable.
+
+NEVER hardcode API keys or tokens.
+
+---
+
+# 6. ENVIRONMENT VARIABLES
+
+Create:
+
+backend/.env.example
+
+Include placeholders such as:
+
+GITHUB_TOKEN=
+OPENROUTER_API_KEY=
+
+Do not put real credentials anywhere in the repository.
+
+Create documentation explaining that secrets must be supplied through environment variables.
+
+Never commit .env files.
+
+---
+
+# 7. FILE FILTERING FOUNDATION
+
+Create:
+
+backend/app/utils/filtering.py
+
+Prepare reusable logic for repository file filtering.
+
+The analyzer will eventually ignore:
+
+.git/
+node_modules/
+venv/
+.venv/
+dist/
+build/
+coverage/
+**pycache**/
+target/
+vendor/
+
+Also ignore:
+
+* images
+* videos
+* archives
+* binary files
+* generated files
+* extremely large files
+
+Add safety limits:
+
+MAX_FILES = 500
+
+MAX_FILE_SIZE = 200 KB
+
+MAX_TOTAL_SOURCE_SIZE = 10 MB
+
+These should be configurable constants, not scattered magic numbers.
+
+---
+
+# 8. DATA MODELS
+
+Create Pydantic models in:
+
+backend/app/models/report.py
+
+Prepare models for:
+
+RepositoryInfo
+Finding
+CategoryScore
+HealthReport
+
+The eventual HealthReport should support:
+
+repository information
+
+overall_score
+
+category scores
+
+summary
+
+findings
+
+recommendations
+
+Use strong typing.
+
+Do not use unstructured dictionaries everywhere.
+
+---
+
+# 9. FRONTEND FOUNDATION
+
+Create a Next.js + TypeScript frontend.
+
+Create:
+
+frontend/app/page.tsx
+
+The initial UI should contain:
+
+* Project title
+* Short description
+* GitHub repository URL input
+* Analyze button
+* clean professional SaaS-style layout
+
+The Analyze button should eventually call:
+
+POST /api/analyze
+
+For this phase, connect it to the backend placeholder endpoint.
+
+Display the returned result in a simple development-friendly way.
+
+Do not build the final dashboard yet.
+
+---
+
+# 10. FRONTEND API LAYER
+
+Create:
+
+frontend/lib/api.ts
+
+Put API communication here.
+
+Do NOT scatter fetch() calls throughout React components.
+
+Prepare a function such as:
+
+analyzeRepository(repositoryUrl)
+
+The backend URL should be configurable through an environment variable.
+
+Do not hardcode production URLs.
+
+---
+
+# 11. TYPESCRIPT TYPES
+
+Create:
+
+frontend/types/report.ts
+
+Define TypeScript types matching the backend Pydantic report models.
+
+Keep frontend and backend contracts aligned.
+
+---
+
+# 12. README
+
+Create a useful README.md.
+
+It must explain:
+
+* Project name
+* What the project does
+* Current development phase
+* Planned architecture
+* Technology stack
+* Folder structure
+* Local setup
+* Environment variables
+* How to run backend
+* How to run frontend
+* How to test the API
+
+Clearly state that this is an evidence-driven GitHub repository health analysis system.
+
+Do not claim features that have not been implemented.
+
+---
+
+# 13. TESTING
+
+Create initial backend tests.
+
+At minimum test:
+
+* valid GitHub URL
+* invalid GitHub URL
+* GitHub URL with trailing slash
+* GitHub URL with .git suffix
+* invalid repository input
+
+Also test the health endpoint.
+
+Tests must be runnable independently of Replit.
+
+---
+
+# 14. CODE QUALITY
+
+Follow these principles:
+
+* small modules
+* clear names
+* type hints
+* useful comments only
+* no duplicated logic
+* no giant files
+* no unnecessary abstractions
+* no dead code
+
+Use standard Python project practices.
+
+---
+
+# 15. GIT / PORTABILITY REQUIREMENT
+
+This project must be GitHub-ready.
+
+Create a strong .gitignore covering:
+
+* .env
+* Python virtual environments
+* **pycache**
+* node_modules
+* build output
+* Next.js cache
+* IDE files
+* OS files
+* logs
+
+Do not commit secrets.
+
+Do not commit temporary files.
+
+Do not create Replit-specific code that prevents local development.
+
+---
+
+# 16. IMPORTANT DEVELOPMENT RULE
+
+DO NOT build the complete application in this step.
+
+Only build the foundation described above.
+
+Do not implement:
+
+* security analyzer
+* dependency analyzer
+* code quality analyzer
+* test analyzer
+* AI analyzer
+* scoring engine
+* final dashboard
+* deployment
+
+Those will be implemented in later controlled phases.
+
+---
+
+# 17. VALIDATION BEFORE FINISHING
+
+After implementation:
+
+1. Install dependencies.
+2. Start the FastAPI backend.
+3. Verify GET / works.
+4. Verify POST /api/analyze accepts a valid GitHub URL.
+5. Start the Next.js frontend.
+6. Verify the frontend can communicate with the backend.
+7. Run backend tests.
+8. Fix any errors you encounter.
+
+Do not stop after merely creating files.
+
+The result must be a working Phase 1 foundation.
+
+At the end, provide:
+
+1. Files created
+2. Files modified
+3. Dependencies installed
+4. Tests executed and results
+5. How to run backend
+6. How to run frontend
+7. Any limitations or remaining work
+
+Remember:
+
+**GitHub is the source of truth.**
+**Replit is only the current development environment.**
+**The project must be portable to Claude Code/local development at any time.**

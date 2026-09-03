@@ -1,44 +1,60 @@
-# [Project name]
+# GitHub Project Health Agent
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An evidence-driven foundation for analyzing the health of public GitHub repositories.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the Replit preview API adapter
+- `pnpm --filter @workspace/github-project-health-agent run dev` — run the Replit preview UI
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `PYTHONPATH=backend python -m pytest backend/tests` — run portable backend tests
+- Required backend env: optional `GITHUB_TOKEN`, reserved `OPENROUTER_API_KEY`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
+- Portable API: FastAPI + Pydantic + httpx
+- Preview API adapter: Express 5
+- Portable frontend: Next.js + TypeScript
+- Preview frontend: React + Vite
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `backend/app/main.py` — portable FastAPI entrypoint
+- `backend/app/api/routes/analysis.py` — Phase 1 analysis route
+- `backend/app/github/` — GitHub REST client boundaries and URL parsing
+- `backend/app/models/report.py` — typed report contract
+- `backend/app/utils/filtering.py` — source collection limits and filters
+- `frontend/app/` — portable Next.js UI
+- `frontend/lib/api.ts` — frontend API boundary
+- `lib/api-spec/openapi.yaml` — shared preview API contract
+- `artifacts/github-project-health-agent/` — live Replit preview UI
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The portable source is kept in root `frontend/` and `backend/`; Replit artifacts are preview adapters.
+- The Phase 1 analyzer returns a typed placeholder report instead of pretending to score without evidence.
+- GitHub access is REST-only and token-based through environment variables.
+- The OpenAPI document generates the preview TypeScript client and Zod schemas.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Users can submit a public GitHub repository URL, receive validation feedback, and
+see the typed Phase 1 report shape with category coverage and next-step guidance.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Portability is a hard requirement: avoid Replit-specific services in the portable app.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Re-run API codegen after editing `lib/api-spec/openapi.yaml`.
+- Do not introduce analyzers or scoring until their controlled phase is requested.
 
 ## Pointers
 

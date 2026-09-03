@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "GitHub Project Health Agent"
+description = "A portable evidence-driven web app that accepts a public GitHub repository URL and prepares a structured project health analysis foundation."
+version = "1.0.0"
+id = "artifacts/github-project-health-agent"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26038
+
+[services.development]
+run = "pnpm --filter @workspace/github-project-health-agent run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/github-project-health-agent", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/github-project-health-agent/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26038"
+BASE_PATH = "/"

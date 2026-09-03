@@ -7,9 +7,18 @@ out-tsc
 *.tsbuildinfo
 .expo
 .expo-shared
+.next
+*.py[cod]
+*$py.class
+htmlcov
+.pytest_cache
+.mypy_cache
 
 # dependencies
 node_modules
+frontend/node_modules
+backend/.venv
+backend/venv
 
 # IDEs and editors
 /.idea
@@ -36,6 +45,10 @@ npm-debug.log
 yarn-error.log
 testem.log
 /typings
+*.log
+.env
+.env.*
+!.env.example
 
 # System Files
 .DS_Store
