@@ -43,16 +43,15 @@ export default function Home() {
           </span>
           <span>Project Health Agent</span>
         </div>
-        <span className="phase-chip">PHASE 1 / FOUNDATION</span>
+        <span className="phase-chip">PHASE 2 / REPOSITORY READ</span>
       </header>
 
       <section className="hero">
         <p className="eyebrow">Evidence before opinion</p>
         <h1>See how healthy a project really is.</h1>
         <p className="hero-copy">
-          Enter a public GitHub repository to prepare an evidence-driven health
-          report. This first foundation validates the project and establishes
-          the report contract for deeper analysis.
+          Enter a public GitHub repository to collect its metadata, structure, and
+          relevant text files without cloning or executing anything locally.
         </p>
 
         <form className="analyze-form" onSubmit={handleSubmit}>
@@ -67,7 +66,7 @@ export default function Home() {
               required
             />
             <button type="submit" disabled={isLoading}>
-              {isLoading ? "Preparing…" : "Analyze repository"}
+              {isLoading ? "Reading repository…" : "Analyze repository"}
             </button>
           </div>
           <div className="form-footer">
@@ -96,14 +95,76 @@ export default function Home() {
         <section className="report" aria-live="polite">
           <div className="report-heading">
             <div>
-              <p className="eyebrow">Repository accepted</p>
+              <p className="eyebrow">Repository snapshot</p>
               <h2>
                 {report.repository.owner}/{report.repository.name}
               </h2>
             </div>
-            <span className="status-badge">Ready for evidence</span>
+            <span className="status-badge">Read complete</span>
           </div>
           <p className="report-summary">{report.summary}</p>
+          {report.repository.description && (
+            <p className="report-description">{report.repository.description}</p>
+          )}
+          <div className="repository-meta">
+            <span>★ {report.repository.stars.toLocaleString()} stars</span>
+            <span>⑂ {report.repository.forks.toLocaleString()} forks</span>
+            <span>Branch: {report.repository.default_branch}</span>
+          </div>
+          <div className="stats-grid">
+            <article className="stat">
+              <span>Total files</span>
+              <strong>{report.statistics.total_files_found.toLocaleString()}</strong>
+            </article>
+            <article className="stat">
+              <span>Analyzed</span>
+              <strong>{report.statistics.files_analyzed.toLocaleString()}</strong>
+            </article>
+            <article className="stat">
+              <span>Skipped</span>
+              <strong>{report.statistics.files_skipped.toLocaleString()}</strong>
+            </article>
+            <article className="stat">
+              <span>Source size</span>
+              <strong>
+                {Math.round(
+                  report.statistics.total_source_size / 1024,
+                ).toLocaleString()}{" "}
+                KB
+              </strong>
+            </article>
+          </div>
+          <div className="evidence-columns">
+            <div>
+              <h3>Detected languages</h3>
+              {Object.keys(report.languages).length > 0 ? (
+                <ul className="language-list">
+                  {Object.entries(report.languages).map(([language, count]) => (
+                    <li key={language}>
+                      <span>{language}</span>
+                      <strong>{count}</strong>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">No recognized source extensions found.</p>
+              )}
+            </div>
+            <div>
+              <h3>Analyzed file paths</h3>
+              {report.files.filter((file) => !file.skipped).length > 0 ? (
+                <ul className="file-list">
+                  {report.files
+                    .filter((file) => !file.skipped)
+                    .map((file) => (
+                      <li key={file.path}>{file.path}</li>
+                    ))}
+                </ul>
+              ) : (
+                <p className="muted">No files were available for analysis.</p>
+              )}
+            </div>
+          </div>
           <div className="category-grid">
             {report.category_scores.map((category) => (
               <article className="category" key={category.category}>
@@ -118,8 +179,8 @@ export default function Home() {
             <div>
               <strong>Foundation complete</strong>
               <p>
-                The next phase will collect repository metadata, tree structure,
-                and file evidence through the GitHub REST API.
+                The next phase can now analyze this structured snapshot for
+                quality, security, and maintenance signals.
               </p>
             </div>
           </div>

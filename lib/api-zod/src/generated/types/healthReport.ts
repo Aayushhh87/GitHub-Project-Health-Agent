@@ -7,7 +7,10 @@
  */
 import type { CategoryScore } from './categoryScore';
 import type { Finding } from './finding';
+import type { HealthReportLanguages } from './healthReportLanguages';
+import type { RepositoryFileSummary } from './repositoryFileSummary';
 import type { RepositoryInfo } from './repositoryInfo';
+import type { RepositoryStatistics } from './repositoryStatistics';
 
 export interface HealthReport {
   repository: RepositoryInfo;
@@ -22,4 +25,7 @@ export interface HealthReport {
   findings: Finding[];
   recommendations: string[];
   phase: string;
+  statistics: RepositoryStatistics;
+  languages: HealthReportLanguages;
+  files: RepositoryFileSummary[];
 }

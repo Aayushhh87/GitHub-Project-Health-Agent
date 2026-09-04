@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +26,54 @@ class RepositoryInfo(BaseModel):
     url: str
     owner: str
     name: str
+    description: str | None = None
+    default_branch: str
+    stars: int = Field(ge=0)
+    forks: int = Field(ge=0)
+    open_issues: int = Field(ge=0)
+    language: str | None = None
+    size_kb: int = Field(default=0, ge=0)
+    topics: list[str] = Field(default_factory=list)
+
+
+class RepositoryFile(BaseModel):
+    path: str
+    size: int = Field(default=0, ge=0)
+    type: Literal["file"] = "file"
+    language: str | None = None
+    content: str | None = None
+    skipped: bool = False
+    skip_reason: str | None = None
+
+
+class RepositoryFileSummary(BaseModel):
+    path: str
+    size: int = Field(default=0, ge=0)
+    type: Literal["file"] = "file"
+    language: str | None = None
+    skipped: bool = False
+    skip_reason: str | None = None
+
+
+class RepositorySnapshot(BaseModel):
+    metadata: RepositoryInfo
+    files: list[RepositoryFile] = Field(default_factory=list)
+    directories: list[str] = Field(default_factory=list)
+    total_files_found: int = Field(default=0, ge=0)
+    files_analyzed: int = Field(default=0, ge=0)
+    files_skipped: int = Field(default=0, ge=0)
+    total_source_size: int = Field(default=0, ge=0)
+    truncated: bool = False
+    truncation_reason: str | None = None
+
+
+class RepositoryStatistics(BaseModel):
+    total_files_found: int = Field(default=0, ge=0)
+    files_analyzed: int = Field(default=0, ge=0)
+    files_skipped: int = Field(default=0, ge=0)
+    total_source_size: int = Field(default=0, ge=0)
+    truncated: bool = False
+    truncation_reason: str | None = None
 
 
 class Finding(BaseModel):
@@ -48,3 +97,6 @@ class HealthReport(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
     phase: str
+    statistics: RepositoryStatistics = Field(default_factory=RepositoryStatistics)
+    languages: dict[str, int] = Field(default_factory=dict)
+    files: list[RepositoryFileSummary] = Field(default_factory=list)

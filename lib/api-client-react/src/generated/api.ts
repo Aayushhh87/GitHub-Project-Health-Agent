@@ -140,7 +140,7 @@ export const getAnalyzeRepositoryUrl = () => {
 }
 
 /**
- * Validates a GitHub repository URL and returns a structured Phase 1 placeholder report.
+ * Fetches repository metadata, structure, and safely filtered text-file evidence.
  * @summary Analyze a public GitHub repository
  */
 export const analyzeRepository = async (analysisRequest: AnalysisRequest, options?: Parameters<typeof customFetch>[1]): Promise<HealthReport> => {

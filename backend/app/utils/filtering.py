@@ -64,6 +64,37 @@ GENERATED_FILE_NAMES = frozenset(
     }
 )
 
+PRIORITY_FILE_NAMES = frozenset(
+    {
+        "readme",
+        "readme.md",
+        "readme.rst",
+        "readme.txt",
+        "requirements.txt",
+        "pyproject.toml",
+        "package.json",
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "pom.xml",
+        "build.gradle",
+        "dockerfile",
+        "docker-compose.yml",
+        ".env.example",
+        ".gitignore",
+    }
+)
+
+PRIORITY_DIRECTORIES = (
+    ".github",
+    "tests",
+    "test",
+    "src",
+    "app",
+    "backend",
+    "frontend",
+)
+
 
 def is_ignored_path(path: str) -> bool:
     """Return whether any path segment belongs to an excluded directory."""
@@ -73,17 +104,43 @@ def is_ignored_path(path: str) -> bool:
     )
 
 
-def should_include_file(path: str, size: int | None = None) -> bool:
-    """Apply path, generated-file, binary-extension, and size filters."""
+def is_relevant_path(path: str) -> bool:
+    """Apply only path and file-type filters, leaving size decisions to ingestion."""
     if is_ignored_path(path):
         return False
 
     name = PurePosixPath(path).name
     extension = PurePosixPath(name).suffix.lower()
-    if name in GENERATED_FILE_NAMES or extension in IGNORED_EXTENSIONS:
+    return name not in IGNORED_EXTENSIONS and extension not in IGNORED_EXTENSIONS
+
+
+def should_include_file(path: str, size: int | None = None) -> bool:
+    """Apply path, generated-file, binary-extension, and size filters."""
+    if not is_relevant_path(path):
         return False
 
     return size is None or 0 <= size <= MAX_FILE_SIZE
+
+
+def file_priority(path: str) -> int:
+    """Return a deterministic priority for selecting files under collection limits."""
+    normalized = path.replace("\\", "/")
+    name = PurePosixPath(normalized).name.lower()
+    if name in PRIORITY_FILE_NAMES:
+        return 0
+    if any(
+        normalized == directory or normalized.startswith(f"{directory}/")
+        for directory in PRIORITY_DIRECTORIES
+    ):
+        return 2 if name.startswith("test") or "/test" in normalized else 3
+    if "docs" in PurePosixPath(normalized).parts or "documentation" in PurePosixPath(normalized).parts:
+        return 5
+    return 6
+
+
+def prioritize_paths(paths: list[str]) -> list[str]:
+    """Sort paths consistently, preserving lexical order within each priority."""
+    return sorted(paths, key=lambda path: (file_priority(path), path.lower(), path))
 
 
 def within_source_limits(file_count: int, total_size: int) -> bool:

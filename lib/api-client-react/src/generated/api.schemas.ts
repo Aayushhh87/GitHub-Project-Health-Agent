@@ -18,6 +18,53 @@ export interface RepositoryInfo {
   url: string;
   owner: string;
   name: string;
+  /** @nullable */
+  description: string | null;
+  default_branch: string;
+  /** @minimum 0 */
+  stars: number;
+  /** @minimum 0 */
+  forks: number;
+  /** @minimum 0 */
+  open_issues: number;
+  /** @nullable */
+  language: string | null;
+  /** @minimum 0 */
+  size_kb: number;
+  topics: string[];
+}
+
+export interface RepositoryStatistics {
+  /** @minimum 0 */
+  total_files_found: number;
+  /** @minimum 0 */
+  files_analyzed: number;
+  /** @minimum 0 */
+  files_skipped: number;
+  /** @minimum 0 */
+  total_source_size: number;
+  truncated: boolean;
+  /** @nullable */
+  truncation_reason: string | null;
+}
+
+export type RepositoryFileSummaryType = typeof RepositoryFileSummaryType[keyof typeof RepositoryFileSummaryType];
+
+
+export const RepositoryFileSummaryType = {
+  file: 'file',
+} as const;
+
+export interface RepositoryFileSummary {
+  path: string;
+  /** @minimum 0 */
+  size: number;
+  type: RepositoryFileSummaryType;
+  /** @nullable */
+  language: string | null;
+  skipped: boolean;
+  /** @nullable */
+  skip_reason: string | null;
 }
 
 export type FindingSeverity = typeof FindingSeverity[keyof typeof FindingSeverity];
@@ -58,6 +105,8 @@ export interface CategoryScore {
   status: CategoryScoreStatus;
 }
 
+export type HealthReportLanguages = {[key: string]: number};
+
 export interface HealthReport {
   repository: RepositoryInfo;
   /**
@@ -71,6 +120,9 @@ export interface HealthReport {
   findings: Finding[];
   recommendations: string[];
   phase: string;
+  statistics: RepositoryStatistics;
+  languages: HealthReportLanguages;
+  files: RepositoryFileSummary[];
 }
 
 export interface ErrorResponse {

@@ -91,10 +91,10 @@ function Rail() {
         </div>
 
         <div className="mt-9 border-l border-[#cbe24b]/40 pl-4">
-          <p className="mono-label text-[#cbe24b]">Phase 01</p>
-          <p className="mt-2 text-[13px] leading-5 text-[#d0d3df]">Evidence-first baseline</p>
+           <p className="mono-label text-[#cbe24b]">Phase 02</p>
+           <p className="mt-2 text-[13px] leading-5 text-[#d0d3df]">Repository evidence</p>
           <p className="mt-2 text-[11px] leading-5 text-[#8990aa]">
-            Start with the public signals. Decide what deserves a deeper look.
+             Read the source safely before deciding what deserves a deeper look.
           </p>
         </div>
       </div>
@@ -158,7 +158,7 @@ function ReportView({ report }: { report: HealthReport }) {
     <section className="report-in mt-16 pb-20" data-testid="section-health-report">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mono-label text-[#73756f]">Analysis report / {report.phase}</p>
+             <p className="mono-label text-[#73756f]">Repository snapshot / {report.phase}</p>
           <h2 className="display-type mt-2 text-4xl font-bold text-[#292b40] sm:text-5xl" data-testid="text-report-title">
             The first read.
           </h2>
@@ -183,16 +183,16 @@ function ReportView({ report }: { report: HealthReport }) {
             <div className="min-w-[180px] flex-1">
               <div className="flex items-center gap-2 text-[#69852c]">
                 <ShieldCheck size={17} />
-                <span className="mono-label text-[10px]">Phase 1 complete</span>
+                 <span className="mono-label text-[10px]">Phase 2 complete</span>
               </div>
               <p className="mt-3 max-w-[275px] text-[15px] leading-6 text-[#51525c]" data-testid="text-summary">
                 {report.summary}
               </p>
             </div>
           </div>
-          <div className="mt-8 flex items-center gap-2 border-t border-[#e2dfd3] pt-4 text-[11px] text-[#777871]">
+             <div className="mt-8 flex items-center gap-2 border-t border-[#e2dfd3] pt-4 text-[11px] text-[#777871]">
             <ClipboardCheck size={14} />
-            <span>Scores reflect available public evidence only.</span>
+             <span>Read-only evidence; repository code is never executed.</span>
           </div>
         </div>
 
@@ -213,6 +213,49 @@ function ReportView({ report }: { report: HealthReport }) {
           </div>
         </div>
       </div>
+
+       <div className="panel mt-5 rounded-[3px] p-6 sm:p-8" data-testid="section-repository-evidence">
+         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+           <div>
+             <p className="mono-label text-[#73756f]">Collected evidence</p>
+             <h3 className="mt-1 text-lg font-bold tracking-[-0.03em] text-[#292b40]">Repository read</h3>
+           </div>
+           <span className="font-[var(--app-font-mono)] text-xs text-[#8c8c83]">
+             {Math.round(report.statistics.total_source_size / 1024).toLocaleString()} KB text
+           </span>
+         </div>
+         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+           {[
+             ['Total files', report.statistics.total_files_found],
+             ['Analyzed', report.statistics.files_analyzed],
+             ['Skipped', report.statistics.files_skipped],
+             ['Branch', report.repository.default_branch],
+           ].map(([label, value]) => (
+             <div className="border-t border-[#ddd9ca] pt-3" key={label}>
+               <p className="mono-label text-[9px] text-[#898982]">{label}</p>
+               <p className="mt-2 font-[var(--app-font-mono)] text-xl font-medium tracking-[-0.06em] text-[#2f3877]">{typeof value === 'number' ? value.toLocaleString() : value}</p>
+             </div>
+           ))}
+         </div>
+         <div className="mt-7 grid gap-7 border-t border-[#e2dfd3] pt-6 lg:grid-cols-[0.8fr_1.2fr]">
+           <div>
+             <p className="mono-label mb-3 text-[9px] text-[#73756f]">Detected languages</p>
+             <div className="flex flex-wrap gap-2">
+               {Object.entries(report.languages).length > 0 ? Object.entries(report.languages).map(([language, count]) => (
+                 <span className="rounded-full bg-[#eef1d3] px-2.5 py-1 font-[var(--app-font-mono)] text-[10px] text-[#52651f]" key={language}>{language} · {count}</span>
+               )) : <span className="text-xs text-[#898982]">No recognized source extensions.</span>}
+             </div>
+           </div>
+           <div>
+             <p className="mono-label mb-3 text-[9px] text-[#73756f]">Analyzed file paths</p>
+             <div className="max-h-28 space-y-1 overflow-auto pr-2">
+               {report.files.filter((file) => !file.skipped).map((file) => (
+                 <p className="truncate font-[var(--app-font-mono)] text-[11px] text-[#62636a]" key={file.path}>{file.path}</p>
+               ))}
+             </div>
+           </div>
+         </div>
+       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.45fr_0.85fr]">
         <div className="panel rounded-[3px] p-6 sm:p-8">
@@ -347,12 +390,12 @@ export default function Home() {
           <section className="stagger-in relative pt-16 sm:pt-20">
             <div className="pointer-events-none absolute -right-8 top-10 hidden h-44 w-44 rounded-full border border-[#d9ddae] lg:block" />
             <div className="pointer-events-none absolute -right-1 top-[6.75rem] hidden h-24 w-24 rounded-full border border-[#d9ddae] lg:block" />
-            <p className="mono-label text-[#6f793c]">01 / establish a baseline</p>
+             <p className="mono-label text-[#6f793c]">02 / read the repository</p>
             <h1 className="display-type mt-5 max-w-3xl text-[3.4rem] font-bold leading-[0.97] text-[#292b40] sm:text-[5.7rem]" data-testid="text-page-title">
               Know what you&apos;re<br /><span className="text-[#2f3877]">walking into.</span>
             </h1>
             <p className="mt-7 max-w-xl text-[15px] leading-7 text-[#62636a] sm:text-base">
-              A fast, evidence-driven first read on the health of a public GitHub project. Paste a repository, then see the signals before you invest the time.
+               A fast, evidence-driven read of a public GitHub project. Paste a repository, then inspect its metadata and source evidence before you invest the time.
             </p>
 
             <form className="panel mt-10 max-w-3xl rounded-[3px] p-2 sm:flex sm:items-center" onSubmit={handleSubmit} data-testid="form-analyze-repository">
@@ -377,7 +420,7 @@ export default function Home() {
                 data-testid="button-run-analysis"
               >
                 {analyze.isPending ? <LoaderCircle size={16} className="animate-spin" /> : <Radar size={16} />}
-                {analyze.isPending ? 'Reading repository' : 'Run analysis'}
+                   {analyze.isPending ? 'Reading repository' : 'Read repository'}
               </button>
             </form>
             {formError && <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#a14435]" role="alert" data-testid="status-form-error"><CircleAlert size={14} />{formError}</p>}

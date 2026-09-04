@@ -10,4 +10,18 @@ export interface RepositoryInfo {
   url: string;
   owner: string;
   name: string;
+  /** @nullable */
+  description: string | null;
+  default_branch: string;
+  /** @minimum 0 */
+  stars: number;
+  /** @minimum 0 */
+  forks: number;
+  /** @minimum 0 */
+  open_issues: number;
+  /** @nullable */
+  language: string | null;
+  /** @minimum 0 */
+  size_kb: number;
+  topics: string[];
 }

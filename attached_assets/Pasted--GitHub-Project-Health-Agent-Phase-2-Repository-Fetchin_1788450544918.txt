@@ -1,0 +1,610 @@
+# GitHub Project Health Agent — Phase 2: Repository Fetching & File Filtering
+
+Continue working on the existing **GitHub Project Health Agent** project.
+
+IMPORTANT:
+Do NOT rebuild the project from scratch.
+Do NOT change the existing architecture unnecessarily.
+Do NOT remove working code from Phase 1.
+
+This project must remain portable and GitHub-first. I may continue development later using Claude Code or another coding agent.
+
+---
+
+## OBJECTIVE
+
+Implement the real repository ingestion pipeline:
+
+GitHub Repository URL
+→ Validate URL
+→ Fetch Repository Metadata
+→ Fetch Repository File Tree
+→ Filter Relevant Files
+→ Fetch Relevant File Contents
+→ Return structured repository data
+
+This is the foundation for all later analysis modules.
+
+---
+
+# 1. GITHUB CLIENT
+
+Complete:
+
+backend/app/github/client.py
+
+Use `httpx`.
+
+Implement clean methods for GitHub REST API operations.
+
+The client should support:
+
+### Repository metadata
+
+GET:
+
+/repos/{owner}/{repo}
+
+Collect useful fields such as:
+
+* name
+* full_name
+* owner
+* description
+* html_url
+* default_branch
+* stargazers_count
+* forks_count
+* open_issues_count
+* language
+* size
+* topics if available
+
+### Repository tree
+
+Use the Git Trees API.
+
+Fetch the recursive repository tree for the default branch.
+
+The implementation should distinguish:
+
+* files
+* directories
+
+Do not download file contents yet during tree discovery.
+
+---
+
+# 2. GITHUB API AUTHENTICATION
+
+Support an optional GitHub token.
+
+Read:
+
+GITHUB_TOKEN
+
+from environment variables.
+
+If the token exists:
+
+send it using the appropriate GitHub authorization header.
+
+If the token does not exist:
+
+the application should still attempt to work with public repositories.
+
+Do NOT hardcode any token.
+
+Do NOT expose tokens in logs or API responses.
+
+---
+
+# 3. ERROR HANDLING
+
+Handle these situations gracefully:
+
+* invalid GitHub URL
+* malformed owner/repository
+* repository does not exist
+* private repository
+* GitHub API authentication failure
+* GitHub rate limit
+* repository tree unavailable
+* individual file unavailable
+* GitHub API timeout
+* unexpected GitHub API response
+
+Return useful application-level errors.
+
+Do not expose raw stack traces to frontend users.
+
+---
+
+# 4. FILE FILTERING
+
+Complete:
+
+backend/app/utils/filtering.py
+
+Implement actual filtering logic.
+
+Ignore directories such as:
+
+.git/
+node_modules/
+venv/
+.venv/
+dist/
+build/
+coverage/
+**pycache**/
+target/
+vendor/
+.cache/
+
+Ignore binary/media/archive extensions including examples such as:
+
+.png
+.jpg
+.jpeg
+.gif
+.webp
+.svg
+.mp4
+.mov
+.avi
+.zip
+.tar
+.gz
+.rar
+.7z
+.pdf
+.exe
+.dll
+.so
+.class
+.pyc
+
+The filter should be extensible rather than one huge hardcoded condition.
+
+---
+
+# 5. FILE SIZE LIMIT
+
+Do not download excessively large files.
+
+Use the existing safety limit:
+
+MAX_FILE_SIZE = 200 KB
+
+If a file exceeds this limit:
+
+* skip downloading it
+* record that it was skipped
+* do not treat it as an error
+* include the reason in repository analysis metadata
+
+---
+
+# 6. FILE COUNT LIMIT
+
+Use:
+
+MAX_FILES = 500
+
+Only analyze up to 500 relevant files.
+
+If the repository contains more than the limit:
+
+* select relevant source/config/documentation files first
+* skip low-priority files
+* record that the repository was truncated
+
+Do NOT randomly download thousands of files.
+
+---
+
+# 7. TOTAL SOURCE SIZE LIMIT
+
+Use:
+
+MAX_TOTAL_SOURCE_SIZE = 10 MB
+
+Track the cumulative size of downloaded text files.
+
+Stop downloading additional files when the limit is reached.
+
+Record:
+
+* total downloaded size
+* number of downloaded files
+* number of skipped files
+* reason for skipping
+
+---
+
+# 8. FILE PRIORITY
+
+When the repository is larger than the limits, prioritize:
+
+1. README files
+2. package/dependency manifests
+3. configuration files
+4. source code
+5. tests
+6. documentation
+7. other text files
+
+Important files include examples such as:
+
+README.md
+requirements.txt
+pyproject.toml
+package.json
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+pom.xml
+build.gradle
+Dockerfile
+docker-compose.yml
+.env.example
+.gitignore
+
+Also prioritize:
+
+.github/
+
+tests/
+test/
+
+src/
+app/
+backend/
+frontend/
+
+Do not assume every repository uses these exact directories.
+
+---
+
+# 9. FILE CONTENT FETCHING
+
+Implement a method that fetches an individual file from GitHub.
+
+Use the GitHub Contents API where appropriate.
+
+The method should:
+
+* fetch content
+* decode Base64 correctly
+* return text
+* respect MAX_FILE_SIZE
+* gracefully handle files that cannot be decoded
+* never return binary content as text
+
+If a file cannot be safely decoded:
+
+skip it and record the reason.
+
+---
+
+# 10. REPOSITORY DATA MODEL
+
+Update the existing Pydantic models so the backend has a structured representation of the fetched repository.
+
+Create/extend models as appropriate.
+
+The internal repository representation should support:
+
+RepositoryInfo
+
+RepositoryFile
+
+RepositorySnapshot
+
+RepositoryFile should contain fields similar to:
+
+* path
+* size
+* type
+* language if detectable
+* content
+* skipped
+* skip_reason
+
+RepositorySnapshot should contain:
+
+* metadata
+* files
+* directories
+* total_files_found
+* files_analyzed
+* files_skipped
+* total_source_size
+* truncation information
+
+Do not expose unnecessary raw GitHub API responses to the frontend.
+
+---
+
+# 11. LANGUAGE DETECTION
+
+Implement basic deterministic language detection from file extensions.
+
+Support at least:
+
+Python
+JavaScript
+TypeScript
+Java
+C
+C++
+C#
+Go
+Rust
+PHP
+Ruby
+Kotlin
+Swift
+HTML
+CSS
+SCSS
+JSON
+YAML
+Markdown
+Shell
+
+Do not attempt to build an advanced language parser.
+
+Keep the mapping in a reusable module.
+
+---
+
+# 12. REPOSITORY ANALYZER FOUNDATION
+
+Complete:
+
+backend/app/analyzer/repository.py
+
+Create a clean repository analyzer that coordinates:
+
+1. GitHub URL parsing
+2. repository metadata retrieval
+3. tree retrieval
+4. file filtering
+5. file content retrieval
+6. language detection
+7. repository snapshot creation
+
+Do NOT implement:
+
+* code quality analysis
+* security analysis
+* dependency vulnerability analysis
+* AI analysis
+* scoring
+
+Those belong to later phases.
+
+---
+
+# 13. API INTEGRATION
+
+Update:
+
+POST /api/analyze
+
+so it performs the actual repository ingestion.
+
+For a valid public repository, return structured repository information.
+
+For example:
+
+{
+"repository": {
+"name": "...",
+"owner": "...",
+"url": "...",
+"default_branch": "..."
+},
+"statistics": {
+"total_files_found": 100,
+"files_analyzed": 72,
+"files_skipped": 28,
+"total_source_size": 123456
+},
+"languages": {
+"Python": 45,
+"JavaScript": 20
+},
+"files": [...]
+}
+
+Keep the response clean and structured.
+
+Do not return huge file contents to the frontend unnecessarily.
+
+The full repository snapshot should primarily remain an internal backend representation for future analyzers.
+
+---
+
+# 14. FRONTEND
+
+Update the existing frontend only enough to demonstrate that Phase 2 works.
+
+After entering a GitHub URL and clicking Analyze, display:
+
+* repository name
+* description
+* stars
+* forks
+* default branch
+* detected languages
+* total files
+* analyzed files
+* skipped files
+
+Also display a simple list of analyzed file paths.
+
+Do NOT build the final health dashboard yet.
+
+Do NOT add charts yet.
+
+---
+
+# 15. SECURITY REQUIREMENTS
+
+Very important:
+
+Never send GitHub tokens to the frontend.
+
+Never display GitHub tokens.
+
+Never log authorization headers.
+
+Never include secrets in error messages.
+
+Do not execute downloaded repository code.
+
+Do not run:
+
+* npm install
+* pip install from the analyzed repository
+* arbitrary shell scripts
+* repository tests
+
+The repository is untrusted input.
+
+Only fetch and inspect files.
+
+---
+
+# 16. PERFORMANCE
+
+Use reasonable HTTP timeouts.
+
+Avoid unnecessary GitHub API calls.
+
+Prefer fetching the repository tree once and then downloading only selected files.
+
+Do not make one API request per unnecessary file.
+
+Use asynchronous HTTP where it provides a clear benefit, but do not overengineer the system.
+
+Keep implementation understandable.
+
+---
+
+# 17. TESTS
+
+Add tests for:
+
+### GitHub URL parsing
+
+Test:
+
+* valid URL
+* invalid URL
+* trailing slash
+* .git suffix
+* invalid owner/repo
+
+### File filtering
+
+Test:
+
+* node_modules excluded
+* .git excluded
+* image excluded
+* binary excluded
+* source file accepted
+* README accepted
+* dependency file accepted
+
+### File size
+
+Test:
+
+* file under 200 KB accepted
+* file above 200 KB skipped
+
+### File count
+
+Test that MAX_FILES is respected.
+
+### Language detection
+
+Test several common extensions.
+
+### GitHub API errors
+
+Test that 404/rate-limit/timeout errors are converted into useful application errors.
+
+Use mocked HTTP responses where possible.
+
+Tests must NOT depend on a live GitHub repository.
+
+---
+
+# 18. DO NOT IMPLEMENT YET
+
+Absolutely do NOT implement:
+
+* AI/LLM integration
+* OpenRouter
+* security analyzer
+* Semgrep
+* pip-audit
+* npm audit
+* code quality scoring
+* health score
+* severity engine
+* final dashboard
+* authentication
+* database
+* deployment
+* automatic fixes
+* GitHub Issues
+* PR creation
+
+We will implement these separately.
+
+---
+
+# 19. VALIDATION
+
+Before finishing:
+
+1. Start backend.
+2. Start frontend.
+3. Analyze a real public GitHub repository.
+4. Confirm metadata is fetched.
+5. Confirm repository tree is fetched.
+6. Confirm ignored directories are not analyzed.
+7. Confirm large files are skipped.
+8. Confirm file count limit works.
+9. Confirm language detection works.
+10. Run all backend tests.
+11. Fix errors.
+
+Do not claim success unless the implementation actually works.
+
+At the end, report:
+
+* files created
+* files modified
+* dependencies added
+* tests executed
+* real repository tested
+* important limitations
+* exact commands to run the application
+
+IMPORTANT FINAL RULE:
+
+Do not restructure the project unnecessarily.
+
+Do not overwrite working Phase 1 functionality.
+
+Keep the entire project portable outside Replit.
+
+GitHub remains the source of truth.

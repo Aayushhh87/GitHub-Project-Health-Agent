@@ -18,7 +18,7 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Validates a GitHub repository URL and returns a structured Phase 1 placeholder report.
+ * Fetches repository metadata, structure, and safely filtered text-file evidence.
  * @summary Analyze a public GitHub repository
  */
 
@@ -28,11 +28,31 @@ export const AnalyzeRepositoryBody = zod.object({
   "repository_url": zod.string().min(1)
 })
 
+export const analyzeRepositoryResponseRepositoryStarsMin = 0;
+
+export const analyzeRepositoryResponseRepositoryForksMin = 0;
+
+export const analyzeRepositoryResponseRepositoryOpenIssuesMin = 0;
+
+export const analyzeRepositoryResponseRepositorySizeKbMin = 0;
+
 export const analyzeRepositoryResponseOverallScoreMin = 0;
 export const analyzeRepositoryResponseOverallScoreMax = 100;
 
 export const analyzeRepositoryResponseCategoryScoresItemScoreMin = 0;
 export const analyzeRepositoryResponseCategoryScoresItemScoreMax = 100;
+
+export const analyzeRepositoryResponseStatisticsTotalFilesFoundMin = 0;
+
+export const analyzeRepositoryResponseStatisticsFilesAnalyzedMin = 0;
+
+export const analyzeRepositoryResponseStatisticsFilesSkippedMin = 0;
+
+export const analyzeRepositoryResponseStatisticsTotalSourceSizeMin = 0;
+
+export const analyzeRepositoryResponseLanguagesMinOne = 0;
+
+export const analyzeRepositoryResponseFilesItemSizeMin = 0;
 
 
 
@@ -40,7 +60,15 @@ export const AnalyzeRepositoryResponse = zod.object({
   "repository": zod.object({
   "url": zod.string(),
   "owner": zod.string(),
-  "name": zod.string()
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "default_branch": zod.string(),
+  "stars": zod.number().min(analyzeRepositoryResponseRepositoryStarsMin),
+  "forks": zod.number().min(analyzeRepositoryResponseRepositoryForksMin),
+  "open_issues": zod.number().min(analyzeRepositoryResponseRepositoryOpenIssuesMin),
+  "language": zod.string().nullable(),
+  "size_kb": zod.number().min(analyzeRepositoryResponseRepositorySizeKbMin),
+  "topics": zod.array(zod.string())
 }),
   "overall_score": zod.number().min(analyzeRepositoryResponseOverallScoreMin).max(analyzeRepositoryResponseOverallScoreMax).nullable(),
   "category_scores": zod.array(zod.object({
@@ -56,7 +84,24 @@ export const AnalyzeRepositoryResponse = zod.object({
   "evidence": zod.array(zod.string())
 })),
   "recommendations": zod.array(zod.string()),
-  "phase": zod.string()
+  "phase": zod.string(),
+  "statistics": zod.object({
+  "total_files_found": zod.number().min(analyzeRepositoryResponseStatisticsTotalFilesFoundMin),
+  "files_analyzed": zod.number().min(analyzeRepositoryResponseStatisticsFilesAnalyzedMin),
+  "files_skipped": zod.number().min(analyzeRepositoryResponseStatisticsFilesSkippedMin),
+  "total_source_size": zod.number().min(analyzeRepositoryResponseStatisticsTotalSourceSizeMin),
+  "truncated": zod.boolean(),
+  "truncation_reason": zod.string().nullable()
+}),
+  "languages": zod.record(zod.string(), zod.number().min(analyzeRepositoryResponseLanguagesMinOne)),
+  "files": zod.array(zod.object({
+  "path": zod.string(),
+  "size": zod.number().min(analyzeRepositoryResponseFilesItemSizeMin),
+  "type": zod.enum(['file']),
+  "language": zod.string().nullable(),
+  "skipped": zod.boolean(),
+  "skip_reason": zod.string().nullable()
+}))
 })
 
 

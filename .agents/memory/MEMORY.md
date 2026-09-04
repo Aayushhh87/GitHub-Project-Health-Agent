@@ -1,0 +1,1 @@
+- [GitHub API limits](github-api-limits.md) — shared unauthenticated development egress can hit GitHub rate limits; keep optional token support and safe 429 handling.
