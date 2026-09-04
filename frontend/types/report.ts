@@ -42,6 +42,10 @@ export interface Finding {
   severity: Severity;
   description: string;
   evidence: string[];
+  category: string;
+  file: string | null;
+  line: number | null;
+  recommendation: string | null;
 }
 
 export interface CategoryScore {
@@ -59,6 +63,7 @@ export interface HealthReport {
   recommendations: string[];
   phase: string;
   statistics: RepositoryStatistics;
+  stats: RepositoryStatistics;
   languages: Record<string, number>;
   files: RepositoryFileSummary[];
 }

@@ -43,7 +43,7 @@ export default function Home() {
           </span>
           <span>Project Health Agent</span>
         </div>
-        <span className="phase-chip">PHASE 2 / REPOSITORY READ</span>
+          <span className="phase-chip">PHASE 3 / QUALITY + SECURITY</span>
       </header>
 
       <section className="hero">
@@ -51,7 +51,7 @@ export default function Home() {
         <h1>See how healthy a project really is.</h1>
         <p className="hero-copy">
           Enter a public GitHub repository to collect its metadata, structure, and
-          relevant text files without cloning or executing anything locally.
+          deterministic quality and security findings without executing anything locally.
         </p>
 
         <form className="analyze-form" onSubmit={handleSubmit}>
@@ -174,10 +174,38 @@ export default function Home() {
               </article>
             ))}
           </div>
+          <div className="findings">
+            <div className="findings-heading">
+              <h3>Quality and security findings</h3>
+              <span>{report.findings.length} detected</span>
+            </div>
+            {report.findings.length > 0 ? (
+              <ul className="finding-list">
+                {report.findings.map((finding, index) => (
+                  <li key={`${finding.title}-${finding.file}-${finding.line}-${index}`}>
+                    <div className="finding-title">
+                      <strong>{finding.title}</strong>
+                      <span className={`severity severity-${finding.severity}`}>
+                        {finding.severity}
+                      </span>
+                    </div>
+                    <p>{finding.category}{finding.file ? ` · ${finding.file}` : ""}{finding.line ? `:${finding.line}` : ""}</p>
+                    <p>{finding.description}</p>
+                    {finding.evidence.map((evidence) => (
+                      <code key={evidence}>{evidence}</code>
+                    ))}
+                    {finding.recommendation && <small>{finding.recommendation}</small>}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">No quality or security findings were detected.</p>
+            )}
+          </div>
           <div className="next-step">
             <span className="step-index">01</span>
             <div>
-              <strong>Foundation complete</strong>
+              <strong>Static analysis complete</strong>
               <p>
                 The next phase can now analyze this structured snapshot for
                 quality, security, and maintenance signals.

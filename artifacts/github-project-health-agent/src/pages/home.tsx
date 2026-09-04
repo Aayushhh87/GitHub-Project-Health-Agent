@@ -91,10 +91,10 @@ function Rail() {
         </div>
 
         <div className="mt-9 border-l border-[#cbe24b]/40 pl-4">
-           <p className="mono-label text-[#cbe24b]">Phase 02</p>
-           <p className="mt-2 text-[13px] leading-5 text-[#d0d3df]">Repository evidence</p>
+           <p className="mono-label text-[#cbe24b]">Phase 03</p>
+           <p className="mt-2 text-[13px] leading-5 text-[#d0d3df]">Quality + security</p>
           <p className="mt-2 text-[11px] leading-5 text-[#8990aa]">
-             Read the source safely before deciding what deserves a deeper look.
+             Surface high-signal issues without executing the repository.
           </p>
         </div>
       </div>
@@ -281,6 +281,9 @@ function ReportView({ report }: { report: HealthReport }) {
                       </span>
                     </div>
                     <p className="mt-2 text-[13px] leading-5 text-[#62636a]" data-testid={`text-finding-description-${index}`}>{finding.description}</p>
+                     <p className="mt-2 font-[var(--app-font-mono)] text-[10px] text-[#898982]" data-testid={`text-finding-location-${index}`}>
+                       {finding.category}{finding.file ? ` · ${finding.file}` : ''}{finding.line ? `:${finding.line}` : ''}
+                     </p>
                     {finding.evidence.length > 0 && (
                       <div className="mt-3 space-y-1.5 border-l-2 border-[#cbe24b] pl-3">
                         {finding.evidence.map((evidence, evidenceIndex) => (
@@ -290,6 +293,11 @@ function ReportView({ report }: { report: HealthReport }) {
                         ))}
                       </div>
                     )}
+                     {finding.recommendation && (
+                       <p className="mt-3 border-t border-[#e1ded3] pt-3 text-[12px] leading-5 text-[#62636a]" data-testid={`text-finding-recommendation-${index}`}>
+                         Recommendation: {finding.recommendation}
+                       </p>
+                     )}
                   </article>
                 );
               })}
@@ -390,12 +398,12 @@ export default function Home() {
           <section className="stagger-in relative pt-16 sm:pt-20">
             <div className="pointer-events-none absolute -right-8 top-10 hidden h-44 w-44 rounded-full border border-[#d9ddae] lg:block" />
             <div className="pointer-events-none absolute -right-1 top-[6.75rem] hidden h-24 w-24 rounded-full border border-[#d9ddae] lg:block" />
-             <p className="mono-label text-[#6f793c]">02 / read the repository</p>
+             <p className="mono-label text-[#6f793c]">03 / analyze the evidence</p>
             <h1 className="display-type mt-5 max-w-3xl text-[3.4rem] font-bold leading-[0.97] text-[#292b40] sm:text-[5.7rem]" data-testid="text-page-title">
               Know what you&apos;re<br /><span className="text-[#2f3877]">walking into.</span>
             </h1>
             <p className="mt-7 max-w-xl text-[15px] leading-7 text-[#62636a] sm:text-base">
-               A fast, evidence-driven read of a public GitHub project. Paste a repository, then inspect its metadata and source evidence before you invest the time.
+               A fast, evidence-driven read of a public GitHub project. Paste a repository, then inspect quality and security signals before you invest the time.
             </p>
 
             <form className="panel mt-10 max-w-3xl rounded-[3px] p-2 sm:flex sm:items-center" onSubmit={handleSubmit} data-testid="form-analyze-repository">

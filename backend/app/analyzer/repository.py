@@ -3,6 +3,8 @@ import binascii
 from collections import Counter
 from typing import Any
 
+from app.analyzer.quality import analyze_quality
+from app.analyzer.security import analyze_security
 from app.github.client import GitHubApiError, GitHubClient
 from app.github.repository import GitHubRepository
 from app.github.url import parse_github_url
@@ -118,7 +120,7 @@ class RepositoryAnalyzer:
                 total_source_size += len(content.encode("utf-8"))
             files.append(file)
 
-        return RepositorySnapshot(
+        snapshot = RepositorySnapshot(
             metadata=metadata,
             files=files,
             directories=directories,
@@ -129,6 +131,8 @@ class RepositoryAnalyzer:
             truncated=truncated,
             truncation_reason=truncation_reason,
         )
+        snapshot.findings = analyze_quality(snapshot) + analyze_security(snapshot)
+        return snapshot
 
     @staticmethod
     def _entry_size(entry: dict[str, Any]) -> int:

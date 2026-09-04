@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.api.routes import analysis as analysis_route
 from app.main import app
-from app.models.report import RepositoryInfo, RepositorySnapshot
+from app.models.report import Finding, RepositoryInfo, RepositorySnapshot, Severity
 
 client = TestClient(app)
 
@@ -26,6 +26,18 @@ def fake_snapshot() -> RepositorySnapshot:
         files_analyzed=1,
         files_skipped=1,
         total_source_size=25,
+        findings=[
+            Finding(
+                title="TODO comment in source",
+                severity=Severity.LOW,
+                category="Code Quality",
+                file="README.md",
+                line=1,
+                description="The file contains an explicit unfinished-work marker.",
+                evidence=["TODO: follow up"],
+                recommendation="Resolve the item.",
+            )
+        ],
     )
 
 
@@ -51,7 +63,9 @@ def test_valid_github_url(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["repository"]["name"] == "repository"
     assert response.json()["statistics"]["files_analyzed"] == 1
-    assert response.json()["phase"] == "Phase 2 — repository ingestion"
+    assert response.json()["phase"] == "Phase 3 — code quality and security analysis"
+    assert response.json()["findings"][0]["category"] == "Code Quality"
+    assert response.json()["findings"][0]["file"] == "README.md"
 
 
 def test_invalid_github_url() -> None:

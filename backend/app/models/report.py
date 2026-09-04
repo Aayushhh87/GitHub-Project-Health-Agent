@@ -55,6 +55,17 @@ class RepositoryFileSummary(BaseModel):
     skip_reason: str | None = None
 
 
+class Finding(BaseModel):
+    title: str
+    severity: Severity
+    description: str
+    evidence: list[str] = Field(default_factory=list)
+    category: str = "General"
+    file: str | None = None
+    line: int | None = Field(default=None, ge=1)
+    recommendation: str | None = None
+
+
 class RepositorySnapshot(BaseModel):
     metadata: RepositoryInfo
     files: list[RepositoryFile] = Field(default_factory=list)
@@ -65,6 +76,7 @@ class RepositorySnapshot(BaseModel):
     total_source_size: int = Field(default=0, ge=0)
     truncated: bool = False
     truncation_reason: str | None = None
+    findings: list[Finding] = Field(default_factory=list)
 
 
 class RepositoryStatistics(BaseModel):
@@ -74,13 +86,6 @@ class RepositoryStatistics(BaseModel):
     total_source_size: int = Field(default=0, ge=0)
     truncated: bool = False
     truncation_reason: str | None = None
-
-
-class Finding(BaseModel):
-    title: str
-    severity: Severity
-    description: str
-    evidence: list[str] = Field(default_factory=list)
 
 
 class CategoryScore(BaseModel):
@@ -98,5 +103,6 @@ class HealthReport(BaseModel):
     recommendations: list[str] = Field(default_factory=list)
     phase: str
     statistics: RepositoryStatistics = Field(default_factory=RepositoryStatistics)
+    stats: RepositoryStatistics = Field(default_factory=RepositoryStatistics)
     languages: dict[str, int] = Field(default_factory=dict)
     files: list[RepositoryFileSummary] = Field(default_factory=list)

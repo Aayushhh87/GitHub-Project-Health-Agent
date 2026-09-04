@@ -1,0 +1,300 @@
+PHASE 3 — CODE QUALITY + SECURITY ANALYSIS
+
+The GitHub Project Health Agent already has:
+- GitHub repository URL validation
+- GitHub repository metadata fetching
+- Recursive repository tree fetching
+- File filtering and safety limits
+- Relevant file content loading
+- RepositorySnapshot models
+- Repository structure/language analysis
+- FastAPI /api/analyze endpoint
+
+Now implement ONLY Phase 3:
+1. Code Quality Analysis
+2. Security Analysis
+
+Do NOT implement AI analysis, scoring, dashboard redesign, dependency analysis, test analysis, authentication, database, deployment, GitHub Issues, PR creation, automatic fixes, or code execution.
+
+==================================================
+1. CODE QUALITY ANALYZER
+==================================================
+
+Create/update:
+
+backend/app/analyzer/quality.py
+
+Implement a deterministic code-quality analyzer.
+
+For Python files:
+- Detect syntax errors using Python AST parsing.
+- Detect very long files.
+- Detect very long functions/methods.
+- Detect excessive nesting where reasonably possible.
+- Detect TODO/FIXME comments.
+- Detect broad exception handling such as "except Exception".
+- Detect obvious unused imports if practical.
+- Use radon if available for cyclomatic complexity.
+- Use ruff if available, but DO NOT make the whole application fail if ruff is unavailable.
+- Gracefully support repositories that do not contain Python.
+
+For JavaScript/TypeScript:
+- Perform lightweight static checks without executing repository code.
+- Detect very long files/functions where practical.
+- Detect TODO/FIXME comments.
+- Detect obvious console/debug statements.
+- Detect overly large source files.
+- Do not require Node.js tooling to be installed.
+
+For other languages:
+- At minimum perform generic checks:
+  - file size
+  - line count
+  - TODO/FIXME
+  - obvious debug statements where safely detectable
+
+Every quality finding must contain:
+- severity
+- category = "Code Quality"
+- title
+- file
+- line if available
+- evidence
+- recommendation
+
+Do not report every normal file as a finding.
+Only report meaningful issues.
+
+==================================================
+2. SECURITY ANALYZER
+==================================================
+
+Create/update:
+
+backend/app/analyzer/security.py
+
+Implement deterministic security scanning.
+
+Detect likely hardcoded secrets using safe regex/pattern matching, including examples such as:
+- API keys
+- tokens
+- passwords
+- private keys
+- common cloud credentials
+- GitHub tokens
+- JWT-like strings where reasonably detectable
+
+Also detect common insecure patterns where practical:
+- hardcoded passwords
+- hardcoded credentials
+- dangerous eval/exec usage
+- Python subprocess calls with shell=True
+- use of pickle.loads / pickle.load
+- insecure HTTP URLs in configuration/source where relevant
+- overly permissive CORS such as allow_origins=["*"] in backend code
+- obvious SQL string concatenation/interpolation patterns
+- disabled TLS verification such as verify=False
+- debug mode enabled in production-like configuration where detectable
+
+IMPORTANT SECURITY RULE:
+NEVER send raw secrets to an LLM.
+For secret findings, mask the detected value.
+
+Example:
+BAD:
+evidence = "sk-123456789abcdef..."
+
+GOOD:
+evidence = "Possible API key detected: sk-12********"
+
+Never print secrets to logs.
+Never return complete secrets in API responses.
+
+Every security finding must contain:
+- severity
+- category = "Security"
+- title
+- file
+- line if available
+- evidence
+- recommendation
+
+Severity guidance:
+- CRITICAL: private keys, highly sensitive credentials, severe credential exposure
+- HIGH: API tokens, passwords, cloud credentials, serious insecure execution
+- MEDIUM: dangerous configuration or risky coding pattern
+- LOW: minor security weakness
+
+Avoid excessive false positives.
+Use confidence-aware patterns where possible.
+
+==================================================
+3. SHARED FINDING MODEL
+==================================================
+
+Reuse the existing Finding Pydantic model if it already exists.
+
+If the current model needs small changes, update it without breaking Phase 1 or Phase 2.
+
+Suggested structure:
+
+Finding:
+- severity
+- category
+- title
+- file
+- line
+- evidence
+- recommendation
+
+Severity should use:
+CRITICAL
+HIGH
+MEDIUM
+LOW
+
+==================================================
+4. ANALYZER ORCHESTRATION
+==================================================
+
+Update:
+
+backend/app/analyzer/repository.py
+
+The repository analyzer should now run:
+
+Repository ingestion
+        ↓
+Repository structure analysis
+        ↓
+Code Quality Analyzer
+        ↓
+Security Analyzer
+
+Return the findings together with the existing repository information/statistics.
+
+Do NOT implement scoring yet.
+
+==================================================
+5. API RESPONSE
+==================================================
+
+Update POST /api/analyze so the response includes:
+
+{
+  "repository": {...},
+  "stats": {...},
+  "findings": [...]
+}
+
+Do not calculate overall_score yet.
+
+Keep the existing API compatible with Phase 1 and Phase 2 as much as possible.
+
+==================================================
+6. SAFETY REQUIREMENTS
+==================================================
+
+VERY IMPORTANT:
+
+- Never execute downloaded repository code.
+- Never install dependencies from the analyzed repository.
+- Never run the repository's tests.
+- Never expose GitHub tokens.
+- Never expose OpenRouter/API keys.
+- Never log detected secrets.
+- Keep existing:
+  MAX_FILES = 500
+  MAX_FILE_SIZE = 200 KB
+  MAX_TOTAL_SOURCE_SIZE = 10 MB
+- Preserve existing file filtering.
+
+==================================================
+7. DEPENDENCIES
+==================================================
+
+Use existing dependencies where possible.
+
+If needed, add:
+- radon
+- ruff
+
+Do not add unnecessary heavy dependencies.
+
+The application must still work if optional analysis tools are unavailable.
+
+==================================================
+8. TESTS
+==================================================
+
+Add/update tests:
+
+backend/tests/test_quality.py
+backend/tests/test_security.py
+
+Test at minimum:
+
+QUALITY:
+- Python syntax error detection
+- TODO/FIXME detection
+- long file/function detection
+- broad exception detection
+- complexity detection if radon is available
+
+SECURITY:
+- hardcoded API key detection
+- password/token detection
+- private key detection
+- eval/exec detection
+- subprocess shell=True detection
+- pickle usage detection
+- verify=False detection
+- secret masking
+- no raw secret appears in returned finding
+
+Also test that normal clean code does not produce excessive findings.
+
+Use temporary strings/files or mocked RepositorySnapshot data.
+Do not access external repositories in unit tests.
+
+==================================================
+9. CODE QUALITY
+==================================================
+
+Follow the existing project architecture.
+
+Do not rewrite unrelated files.
+
+Keep functions small and understandable.
+
+Use type hints.
+
+Use Pydantic models consistently.
+
+Handle malformed/unusual repository files gracefully.
+
+Do not allow one problematic file to crash the complete repository analysis.
+
+==================================================
+10. VALIDATION
+==================================================
+
+After implementation:
+
+1. Run backend tests.
+2. Run the FastAPI application.
+3. Test /api/analyze using at least one small public GitHub repository.
+4. Confirm findings are returned.
+5. Confirm secret values are masked.
+6. Confirm no repository code is executed.
+7. Confirm Phase 1 and Phase 2 functionality still works.
+
+At the end, report:
+- files created/modified
+- dependencies added
+- tests passed
+- any limitations
+- example API response shape
+
+STOP after Phase 3.
+Do not start Phase 4 or implement AI/scoring yet.

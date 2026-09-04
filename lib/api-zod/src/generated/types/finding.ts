@@ -12,4 +12,14 @@ export interface Finding {
   severity: FindingSeverity;
   description: string;
   evidence: string[];
+  category: string;
+  /** @nullable */
+  file: string | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  line: number | null;
+  /** @nullable */
+  recommendation: string | null;
 }

@@ -18,7 +18,7 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Fetches repository metadata, structure, and safely filtered text-file evidence.
+ * Fetches repository metadata, structure, and deterministic code-quality and security findings from safely filtered text-file evidence.
  * @summary Analyze a public GitHub repository
  */
 
@@ -42,6 +42,7 @@ export const analyzeRepositoryResponseOverallScoreMax = 100;
 export const analyzeRepositoryResponseCategoryScoresItemScoreMin = 0;
 export const analyzeRepositoryResponseCategoryScoresItemScoreMax = 100;
 
+
 export const analyzeRepositoryResponseStatisticsTotalFilesFoundMin = 0;
 
 export const analyzeRepositoryResponseStatisticsFilesAnalyzedMin = 0;
@@ -49,6 +50,14 @@ export const analyzeRepositoryResponseStatisticsFilesAnalyzedMin = 0;
 export const analyzeRepositoryResponseStatisticsFilesSkippedMin = 0;
 
 export const analyzeRepositoryResponseStatisticsTotalSourceSizeMin = 0;
+
+export const analyzeRepositoryResponseStatsTotalFilesFoundMin = 0;
+
+export const analyzeRepositoryResponseStatsFilesAnalyzedMin = 0;
+
+export const analyzeRepositoryResponseStatsFilesSkippedMin = 0;
+
+export const analyzeRepositoryResponseStatsTotalSourceSizeMin = 0;
 
 export const analyzeRepositoryResponseLanguagesMinOne = 0;
 
@@ -81,7 +90,11 @@ export const AnalyzeRepositoryResponse = zod.object({
   "title": zod.string(),
   "severity": zod.enum(['info', 'low', 'medium', 'high', 'critical']),
   "description": zod.string(),
-  "evidence": zod.array(zod.string())
+  "evidence": zod.array(zod.string()),
+  "category": zod.string(),
+  "file": zod.string().nullable(),
+  "line": zod.number().min(1).nullable(),
+  "recommendation": zod.string().nullable()
 })),
   "recommendations": zod.array(zod.string()),
   "phase": zod.string(),
@@ -90,6 +103,14 @@ export const AnalyzeRepositoryResponse = zod.object({
   "files_analyzed": zod.number().min(analyzeRepositoryResponseStatisticsFilesAnalyzedMin),
   "files_skipped": zod.number().min(analyzeRepositoryResponseStatisticsFilesSkippedMin),
   "total_source_size": zod.number().min(analyzeRepositoryResponseStatisticsTotalSourceSizeMin),
+  "truncated": zod.boolean(),
+  "truncation_reason": zod.string().nullable()
+}),
+  "stats": zod.object({
+  "total_files_found": zod.number().min(analyzeRepositoryResponseStatsTotalFilesFoundMin),
+  "files_analyzed": zod.number().min(analyzeRepositoryResponseStatsFilesAnalyzedMin),
+  "files_skipped": zod.number().min(analyzeRepositoryResponseStatsFilesSkippedMin),
+  "total_source_size": zod.number().min(analyzeRepositoryResponseStatsTotalSourceSizeMin),
   "truncated": zod.boolean(),
   "truncation_reason": zod.string().nullable()
 }),

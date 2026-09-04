@@ -26,6 +26,7 @@ export interface HealthReport {
   recommendations: string[];
   phase: string;
   statistics: RepositoryStatistics;
+  stats: RepositoryStatistics;
   languages: HealthReportLanguages;
   files: RepositoryFileSummary[];
 }

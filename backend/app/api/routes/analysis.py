@@ -64,10 +64,20 @@ async def analyze_repository(
 
     summary = (
         f"Collected {snapshot.files_analyzed} text files from "
-        f"{snapshot.metadata.owner}/{snapshot.metadata.name} without cloning it."
+        f"{snapshot.metadata.owner}/{snapshot.metadata.name} without cloning it. "
+        f"Found {len(snapshot.findings)} deterministic quality and security signals."
     )
     if snapshot.files_skipped:
         summary += f" {snapshot.files_skipped} files were skipped safely."
+
+    statistics = RepositoryStatistics(
+        total_files_found=snapshot.total_files_found,
+        files_analyzed=snapshot.files_analyzed,
+        files_skipped=snapshot.files_skipped,
+        total_source_size=snapshot.total_source_size,
+        truncated=snapshot.truncated,
+        truncation_reason=snapshot.truncation_reason,
+    )
 
     return HealthReport(
         repository=RepositoryInfo(
@@ -93,20 +103,14 @@ async def analyze_repository(
             for category in PHASE_ONE_CATEGORIES
         ],
         summary=summary,
-        findings=[],
+        findings=snapshot.findings,
         recommendations=[
-            "Use the collected repository snapshot as input for the next analyzer phase.",
-            "Keep evidence collection read-only; no repository code is executed.",
+            "Review quality and security findings alongside their file and line evidence.",
+            "Keep analysis read-only; repository code is never executed.",
         ],
-        phase="Phase 2 — repository ingestion",
-        statistics=RepositoryStatistics(
-            total_files_found=snapshot.total_files_found,
-            files_analyzed=snapshot.files_analyzed,
-            files_skipped=snapshot.files_skipped,
-            total_source_size=snapshot.total_source_size,
-            truncated=snapshot.truncated,
-            truncation_reason=snapshot.truncation_reason,
-        ),
+        phase="Phase 3 — code quality and security analysis",
+        statistics=statistics,
+        stats=statistics,
         languages=language_counts(snapshot),
         files=[
             RepositoryFileSummary(

@@ -251,6 +251,122 @@ async function fetchFileText(
   return text.includes("\ufffd") ? null : { text, bytes: bytes.length };
 }
 
+type PreviewFinding = {
+  title: string;
+  severity: "info" | "low" | "medium" | "high" | "critical";
+  description: string;
+  evidence: string[];
+  category: string;
+  file: string;
+  line: number;
+  recommendation: string;
+};
+
+function maskPreviewSecret(value: string) {
+  return `${value.slice(0, 4)}********`;
+}
+
+function previewFindings(path: string, language: string | null, text: string): PreviewFinding[] {
+  const findings: PreviewFinding[] = [];
+  const lines = text.split(/\r?\n/);
+  const secretPattern = /\b(?:sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\b/;
+  const assignmentPattern = /\b(api[_-]?key|token|password|passwd|secret|private[_-]?key)\s*[:=]\s*(['"])([^'"\r\n]{8,})\2/i;
+  lines.forEach((line, index) => {
+    const lineNumber = index + 1;
+    const secret = line.match(secretPattern);
+    const assignment = line.match(assignmentPattern);
+    if (secret || assignment) {
+      const value = secret?.[0] ?? assignment?.[3] ?? "";
+      if (!["changeme", "placeholder", "your-key-here"].includes(value.toLowerCase())) {
+        findings.push({
+          title: "Likely hardcoded credential",
+          severity: "high",
+          description: "A token-shaped or secret-like literal appears in repository text.",
+          evidence: [`Possible credential detected: ${maskPreviewSecret(value)}`],
+          category: "Security",
+          file: path,
+          line: lineNumber,
+          recommendation: "Rotate the value if real and load it from environment or secret storage.",
+        });
+      }
+    }
+    if (/\b(?:eval|exec)\s*\(/.test(line)) {
+      findings.push({
+        title: "Dynamic code execution",
+        severity: "high",
+        description: "The source invokes eval or exec.",
+        evidence: [line.trim().slice(0, 240)],
+        category: "Security",
+        file: path,
+        line: lineNumber,
+        recommendation: "Avoid dynamic execution and use a constrained parser or explicit dispatch.",
+      });
+    }
+    if (/\bsubprocess\.(?:run|Popen|call|check_call|check_output)\s*\([^)\n]*\bshell\s*=\s*True/i.test(line)) {
+      findings.push({
+        title: "Shell execution through subprocess",
+        severity: "high",
+        description: "A subprocess call enables shell interpretation.",
+        evidence: [line.trim().slice(0, 240)],
+        category: "Security",
+        file: path,
+        line: lineNumber,
+        recommendation: "Pass an argument list without shell=True and validate external input.",
+      });
+    }
+    if (/\bpickle\.(?:load|loads)\s*\(/.test(line)) {
+      findings.push({
+        title: "Unsafe pickle deserialization",
+        severity: "high",
+        description: "Pickle deserialization can execute attacker-controlled object behavior.",
+        evidence: [line.trim().slice(0, 240)],
+        category: "Security",
+        file: path,
+        line: lineNumber,
+        recommendation: "Use a data-only serialization format and validate untrusted input.",
+      });
+    }
+    if (/\bverify\s*=\s*False\b/i.test(line)) {
+      findings.push({
+        title: "TLS certificate verification disabled",
+        severity: "medium",
+        description: "An HTTP client disables certificate verification.",
+        evidence: [line.trim().slice(0, 240)],
+        category: "Security",
+        file: path,
+        line: lineNumber,
+        recommendation: "Keep TLS verification enabled.",
+      });
+    }
+    const todo = line.match(/\b(TODO|FIXME)\b(?:\s*[:\-]\s*)?(.*)/i);
+    if (todo) {
+      findings.push({
+        title: `${todo[1].toUpperCase()} comment in source`,
+        severity: "low",
+        description: "The file contains an explicit unfinished-work marker.",
+        evidence: [`${todo[1].toUpperCase()}: ${(todo[2] || "follow-up work").slice(0, 160)}`],
+        category: "Code Quality",
+        file: path,
+        line: lineNumber,
+        recommendation: "Resolve the item or track it in the project issue system.",
+      });
+    }
+    if ((language === "JavaScript" || language === "TypeScript") && /\b(?:console\.(?:log|debug|trace)|debugger)\b/.test(line)) {
+      findings.push({
+        title: "Debug statement in source",
+        severity: "low",
+        description: "A console or debugger statement is present in source.",
+        evidence: [line.trim().slice(0, 240)],
+        category: "Code Quality",
+        file: path,
+        line: lineNumber,
+        recommendation: "Remove debug output or route intentional diagnostics through the project logger.",
+      });
+    }
+  });
+  return findings;
+}
+
 router.post("/analyze", async (req, res) => {
   try {
     const input = AnalyzeRepositoryBody.parse(req.body);
@@ -286,6 +402,7 @@ router.post("/analyze", async (req, res) => {
     let skipped = rawFiles.length - relevant.length + (relevant.length - selected.length);
     let downloadedSize = 0;
     const languageCounts: Record<string, number> = {};
+    const findings: PreviewFinding[] = [];
     const files: Array<{
       path: string;
       size: number;
@@ -316,6 +433,7 @@ router.post("/analyze", async (req, res) => {
           } else {
             downloadedSize += file.bytes;
             if (language) languageCounts[language] = (languageCounts[language] ?? 0) + 1;
+            findings.push(...previewFindings(entry.path, language, file.text));
           }
         } catch {
           skippedReason = "File contents were unavailable or not valid text.";
@@ -355,13 +473,25 @@ router.post("/analyze", async (req, res) => {
         "maintenance signals",
       ].map((category) => ({ category, score: null, status: "not_started" })),
       summary: `Collected ${files.filter((file) => !file.skipped).length} text files from ${repository.owner}/${repository.name} without cloning it.${skipped ? ` ${skipped} files were skipped safely.` : ""}`,
-      findings: [],
+      findings,
       recommendations: [
-        "Use the collected repository snapshot as input for the next analyzer phase.",
-        "Keep evidence collection read-only; no repository code is executed.",
+        "Review each quality and security signal with its file and line evidence.",
+        "Keep analysis read-only; repository code is never executed.",
       ],
-      phase: "Phase 2 — repository ingestion",
+      phase: "Phase 3 — code quality and security analysis",
       statistics: {
+        total_files_found: rawFiles.length,
+        files_analyzed: files.filter((file) => !file.skipped).length,
+        files_skipped: skipped,
+        total_source_size: downloadedSize,
+        truncated,
+        truncation_reason: treePayload.truncated
+          ? "GitHub truncated the repository tree response."
+          : relevant.length > MAX_FILES
+            ? `Only the first ${MAX_FILES} relevant files were selected.`
+            : null,
+      },
+      stats: {
         total_files_found: rawFiles.length,
         files_analyzed: files.filter((file) => !file.skipped).length,
         files_skipped: skipped,
