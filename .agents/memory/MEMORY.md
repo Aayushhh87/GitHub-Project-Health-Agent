@@ -1,1 +1,2 @@
 - [GitHub API limits](github-api-limits.md) — shared unauthenticated development egress can hit GitHub rate limits; keep optional token support and safe 429 handling.
+- [Static analysis boundary](static-analysis-boundary.md) — dependency and test analysis must consume fetched text only; never install, execute, or invoke repository tooling.

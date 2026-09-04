@@ -1,0 +1,398 @@
+PHASE 4 — DEPENDENCY ANALYSIS + TEST DETECTION
+
+The GitHub Project Health Agent already has:
+
+- GitHub repository URL validation
+- Repository metadata/tree fetching
+- File filtering and safety limits
+- Relevant file content loading
+- Repository structure/language analysis
+- Code Quality Analyzer
+- Security Analyzer
+- Shared Finding model
+- Findings returned by POST /api/analyze
+
+Now implement ONLY:
+
+1. Dependency Analysis
+2. Test Detection
+
+Do NOT implement:
+- AI/OpenRouter
+- scoring/health score
+- dashboard redesign
+- authentication
+- database
+- deployment
+- GitHub Issues
+- PR creation
+- automatic fixes
+- repository code execution
+- dependency installation
+
+==================================================
+1. DEPENDENCY ANALYZER
+==================================================
+
+Create:
+
+backend/app/analyzer/dependencies.py
+
+Analyze dependency/manifest files that are already fetched by the repository ingestion pipeline.
+
+Support at minimum:
+
+Python:
+- requirements.txt
+- requirements-dev.txt
+- pyproject.toml
+- Pipfile
+- setup.py
+- setup.cfg
+
+JavaScript/TypeScript:
+- package.json
+- package-lock.json
+- npm-shrinkwrap.json
+- yarn.lock
+- pnpm-lock.yaml
+
+Java:
+- pom.xml
+- build.gradle
+- build.gradle.kts
+
+Go:
+- go.mod
+
+Rust:
+- Cargo.toml
+- Cargo.lock
+
+PHP:
+- composer.json
+- composer.lock
+
+Also recognize dependency files for other common ecosystems when practical.
+
+The analyzer should determine:
+
+- whether dependency management exists
+- which ecosystem(s) are used
+- approximate dependency count where reliably possible
+- production vs development dependencies where the manifest makes this clear
+- whether lockfiles exist
+- whether dependencies appear pinned or loosely specified
+- obvious risky dependency patterns where deterministically detectable
+
+IMPORTANT:
+
+Do NOT install dependencies.
+
+Do NOT execute package managers.
+
+Do NOT run npm install, pip install, poetry install, cargo build, mvn, gradle, etc.
+
+Do NOT execute repository code.
+
+==================================================
+2. VULNERABILITY CHECKING
+==================================================
+
+If practical and safe, support existing lockfiles/manifests with:
+
+Python:
+- pip-audit, only if already available or easily usable against the analyzed dependency metadata
+- Do not install the repository's dependencies
+
+Node:
+- npm audit only if it can be performed without installing repository dependencies and without executing arbitrary repository scripts
+
+If these tools are unavailable, the analyzer must continue normally.
+
+Do NOT make external vulnerability tooling a hard requirement.
+
+Do NOT report "vulnerable" merely because a dependency is old.
+
+Only report vulnerability information when reliable evidence is available.
+
+==================================================
+3. DEPENDENCY FINDINGS
+==================================================
+
+Use the existing Finding model.
+
+Dependency findings should contain:
+
+- severity
+- category = "Dependencies"
+- title
+- file
+- line if available
+- evidence
+- recommendation
+
+Possible findings:
+
+- no dependency manifest detected
+- dependency manifest exists but no lockfile where a lockfile is normally expected
+- unpinned/very broad dependency versions
+- known vulnerability from a reliable audit tool
+- suspicious dependency configuration
+
+Avoid excessive false positives.
+
+For a repository that does not use dependencies, do not incorrectly report a problem.
+
+==================================================
+4. TEST DETECTION
+==================================================
+
+Create:
+
+backend/app/analyzer/tests.py
+
+Detect whether the repository has automated tests.
+
+Look for common test directories/files such as:
+
+- tests/
+- test/
+- __tests__/
+- spec/
+- *_test.py
+- test_*.py
+- *.test.js
+- *.test.ts
+- *.spec.js
+- *.spec.ts
+- *_test.go
+- *Test.java
+- src/test/
+- pytest configuration
+- Jest configuration
+- Vitest configuration
+- Mocha configuration
+- unittest usage
+- JUnit configuration
+- Go test files
+- Rust test modules
+
+Also detect likely test frameworks from configuration/source evidence.
+
+Return structured information such as:
+
+- tests_detected: true/false
+- test_file_count
+- test_directories
+- detected_frameworks
+- evidence files
+
+If useful, create a small structured model for test analysis.
+
+==================================================
+5. TEST FINDINGS
+==================================================
+
+Use the existing Finding model.
+
+Category:
+
+"Testing"
+
+Examples:
+
+MEDIUM:
+- No automated tests detected
+
+LOW:
+- Very small test presence relative to source files, only when there is enough reliable evidence
+
+Do NOT make aggressive claims about test quality.
+
+Important:
+Presence of tests does NOT mean tests are good.
+
+This phase is only detecting test presence and available evidence.
+
+Do NOT run repository tests.
+
+==================================================
+6. REPOSITORY ANALYZER ORCHESTRATION
+==================================================
+
+Update:
+
+backend/app/analyzer/repository.py
+
+The analysis flow should now be:
+
+Repository ingestion
+        ↓
+Repository structure analysis
+        ↓
+Code Quality Analyzer
+        ↓
+Security Analyzer
+        ↓
+Dependency Analyzer
+        ↓
+Test Detector
+        ↓
+Combined Findings + Analysis Metadata
+
+Make sure one analyzer failing on one malformed file does not crash the entire scan.
+
+==================================================
+7. API RESPONSE
+==================================================
+
+Update POST /api/analyze.
+
+Keep the existing response structure compatible with previous phases.
+
+Add dependency and testing information.
+
+Example:
+
+{
+  "repository": {...},
+  "stats": {...},
+  "dependencies": {
+    "ecosystems": ["Python"],
+    "manifests": ["requirements.txt"],
+    "lockfiles": ["requirements.txt"],
+    "dependency_count": 12
+  },
+  "testing": {
+    "tests_detected": true,
+    "test_file_count": 8,
+    "test_directories": ["tests"],
+    "frameworks": ["pytest"]
+  },
+  "findings": [...]
+}
+
+Use the project's existing Pydantic models and architecture where possible.
+
+Do not break existing API fields.
+
+==================================================
+8. SCORING
+==================================================
+
+DO NOT calculate health scores yet.
+
+Do NOT add overall_score.
+
+Do NOT add category scores.
+
+Scoring will be implemented in the next phase.
+
+==================================================
+9. SAFETY
+==================================================
+
+Preserve all existing safety limits:
+
+MAX_FILES = 500
+MAX_FILE_SIZE = 200 KB
+MAX_TOTAL_SOURCE_SIZE = 10 MB
+
+Never:
+
+- execute repository code
+- install repository dependencies
+- run repository tests
+- run arbitrary scripts from package.json
+- expose GitHub tokens
+- expose OpenRouter/API keys
+- expose environment secrets
+
+Treat repository contents as untrusted input.
+
+==================================================
+10. TESTS
+==================================================
+
+Add:
+
+backend/tests/test_dependencies.py
+backend/tests/test_tests.py
+
+Test dependency detection for:
+
+- requirements.txt
+- pyproject.toml
+- package.json
+- package-lock.json
+- pom.xml
+- go.mod
+- Cargo.toml
+
+Test:
+
+- dependency count where supported
+- pinned vs loose versions
+- lockfile detection
+- missing dependency manifest
+- malformed manifest handling
+
+Test test detection for:
+
+- tests/ directory
+- pytest-style files
+- Jest/Vitest-style files
+- JUnit-style files
+- Go *_test.go
+- repository with no tests
+
+Also test that malformed files do not crash the analyzer.
+
+==================================================
+11. VALIDATION
+==================================================
+
+After implementation:
+
+1. Run all backend tests.
+2. Confirm Phase 1, Phase 2 and Phase 3 tests still pass.
+3. Start FastAPI.
+4. Analyze at least one small public GitHub repository.
+5. Verify:
+   - dependency information appears
+   - testing information appears
+   - dependency findings appear when appropriate
+   - testing findings appear when appropriate
+   - existing code-quality findings still appear
+   - existing security findings still appear
+6. Confirm no repository dependency is installed.
+7. Confirm no repository code/tests are executed.
+
+At the end report:
+
+PHASE 4 STATUS: PASS/FAIL
+
+Files created/modified:
+- ...
+
+Tests:
+- X passed
+- Y failed
+
+Dependency detection:
+- PASS/FAIL
+
+Test detection:
+- PASS/FAIL
+
+API:
+- PASS/FAIL
+
+Safety checks:
+- PASS/FAIL
+
+List any limitations or known false-positive risks.
+
+STOP after Phase 4.
+Do not implement AI or scoring yet.

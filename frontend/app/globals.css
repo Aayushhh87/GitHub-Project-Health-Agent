@@ -431,6 +431,37 @@ h2 {
   color: #2f7151;
 }
 
+.analysis-metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.analysis-metadata article {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.analysis-metadata h3 {
+  margin: 0;
+  color: var(--navy);
+  font-family: Georgia, serif;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.analysis-metadata p,
+.analysis-metadata small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .category-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -534,6 +565,10 @@ h2 {
   }
 
   .evidence-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-metadata {
     grid-template-columns: 1fr;
   }
 }

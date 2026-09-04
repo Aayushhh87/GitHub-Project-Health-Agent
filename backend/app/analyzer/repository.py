@@ -5,6 +5,8 @@ from typing import Any
 
 from app.analyzer.quality import analyze_quality
 from app.analyzer.security import analyze_security
+from app.analyzer.dependencies import analyze_dependencies
+from app.analyzer.tests import analyze_tests
 from app.github.client import GitHubApiError, GitHubClient
 from app.github.repository import GitHubRepository
 from app.github.url import parse_github_url
@@ -131,7 +133,28 @@ class RepositoryAnalyzer:
             truncated=truncated,
             truncation_reason=truncation_reason,
         )
-        snapshot.findings = analyze_quality(snapshot) + analyze_security(snapshot)
+        findings: list = []
+        for analyzer in (
+            analyze_quality,
+            analyze_security,
+            analyze_dependencies,
+            analyze_tests,
+        ):
+            try:
+                result = analyzer(snapshot)
+                if isinstance(result, tuple):
+                    metadata, analyzer_findings = result
+                    if analyzer is analyze_dependencies:
+                        snapshot.dependencies = metadata
+                    else:
+                        snapshot.testing = metadata
+                    findings.extend(analyzer_findings)
+                else:
+                    findings.extend(result)
+            except Exception:
+                # A malformed manifest or test file must not abort the repository scan.
+                continue
+        snapshot.findings = findings
         return snapshot
 
     @staticmethod

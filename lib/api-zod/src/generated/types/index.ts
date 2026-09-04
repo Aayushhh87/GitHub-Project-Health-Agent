@@ -9,6 +9,7 @@
 export * from './analysisRequest';
 export * from './categoryScore';
 export * from './categoryScoreStatus';
+export * from './dependencyReport';
 export * from './errorResponse';
 export * from './finding';
 export * from './findingSeverity';
@@ -19,3 +20,4 @@ export * from './repositoryFileSummary';
 export * from './repositoryFileSummaryType';
 export * from './repositoryInfo';
 export * from './repositoryStatistics';
+export * from './testingReport';

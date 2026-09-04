@@ -31,7 +31,7 @@ paths:
       operationId: analyzeRepository
       tags: [analysis]
       summary: Analyze a public GitHub repository
-      description: Fetches repository metadata, structure, and deterministic code-quality and security findings from safely filtered text-file evidence.
+      description: Fetches repository metadata, structure, deterministic quality and security findings, dependency metadata, and test evidence from safely filtered text-file evidence.
       requestBody:
         required: true
         content:
@@ -137,6 +137,74 @@ components:
         - total_source_size
         - truncated
         - truncation_reason
+    DependencyReport:
+      type: object
+      properties:
+        has_dependency_management:
+          type: boolean
+        ecosystems:
+          type: array
+          items:
+            type: string
+        manifests:
+          type: array
+          items:
+            type: string
+        lockfiles:
+          type: array
+          items:
+            type: string
+        dependency_count:
+          type: ["number", "null"]
+          minimum: 0
+        production_dependencies:
+          type: ["number", "null"]
+          minimum: 0
+        development_dependencies:
+          type: ["number", "null"]
+          minimum: 0
+        pinned_dependencies:
+          type: ["number", "null"]
+          minimum: 0
+        loose_dependencies:
+          type: ["number", "null"]
+          minimum: 0
+      required:
+        - has_dependency_management
+        - ecosystems
+        - manifests
+        - lockfiles
+        - dependency_count
+        - production_dependencies
+        - development_dependencies
+        - pinned_dependencies
+        - loose_dependencies
+    TestingReport:
+      type: object
+      properties:
+        tests_detected:
+          type: boolean
+        test_file_count:
+          type: number
+          minimum: 0
+        test_directories:
+          type: array
+          items:
+            type: string
+        frameworks:
+          type: array
+          items:
+            type: string
+        evidence_files:
+          type: array
+          items:
+            type: string
+      required:
+        - tests_detected
+        - test_file_count
+        - test_directories
+        - frameworks
+        - evidence_files
     RepositoryFileSummary:
       type: object
       properties:
@@ -238,6 +306,10 @@ components:
           $ref: "#/components/schemas/RepositoryStatistics"
         stats:
           $ref: "#/components/schemas/RepositoryStatistics"
+        dependencies:
+          $ref: "#/components/schemas/DependencyReport"
+        testing:
+          $ref: "#/components/schemas/TestingReport"
         languages:
           type: object
           additionalProperties:
@@ -257,6 +329,8 @@ components:
         - phase
         - statistics
         - stats
+        - dependencies
+        - testing
         - languages
         - files
     ErrorResponse:

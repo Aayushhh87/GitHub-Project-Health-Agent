@@ -262,6 +262,60 @@ type PreviewFinding = {
   recommendation: string;
 };
 
+type PreviewSource = {
+  path: string;
+  language: string | null;
+  content: string;
+};
+
+type PreviewDependencies = {
+  has_dependency_management: boolean;
+  ecosystems: string[];
+  manifests: string[];
+  lockfiles: string[];
+  dependency_count: number | null;
+  production_dependencies: number | null;
+  development_dependencies: number | null;
+  pinned_dependencies: number | null;
+  loose_dependencies: number | null;
+};
+
+type PreviewTesting = {
+  tests_detected: boolean;
+  test_file_count: number;
+  test_directories: string[];
+  frameworks: string[];
+  evidence_files: string[];
+};
+
+const previewManifestEcosystems: Record<string, string> = {
+  "requirements.txt": "Python",
+  "requirements-dev.txt": "Python",
+  "pyproject.toml": "Python",
+  "pipfile": "Python",
+  "setup.py": "Python",
+  "setup.cfg": "Python",
+  "package.json": "JavaScript/TypeScript",
+  "pom.xml": "Java",
+  "build.gradle": "Java",
+  "build.gradle.kts": "Java",
+  "go.mod": "Go",
+  "cargo.toml": "Rust",
+  "composer.json": "PHP",
+};
+
+const previewLockfileEcosystems: Record<string, string> = {
+  "package-lock.json": "JavaScript/TypeScript",
+  "npm-shrinkwrap.json": "JavaScript/TypeScript",
+  "yarn.lock": "JavaScript/TypeScript",
+  "pnpm-lock.yaml": "JavaScript/TypeScript",
+  "pipfile.lock": "Python",
+  "poetry.lock": "Python",
+  "go.sum": "Go",
+  "cargo.lock": "Rust",
+  "composer.lock": "PHP",
+};
+
 function maskPreviewSecret(value: string) {
   return `${value.slice(0, 4)}********`;
 }
@@ -367,6 +421,195 @@ function previewFindings(path: string, language: string | null, text: string): P
   return findings;
 }
 
+function previewDependencyData(sources: PreviewSource[]): {
+  data: PreviewDependencies;
+  findings: PreviewFinding[];
+} {
+  const manifests = sources.filter((source) => previewManifestEcosystems[source.path.split("/").at(-1)?.toLowerCase() ?? ""]);
+  const locks = sources.filter((source) => previewLockfileEcosystems[source.path.split("/").at(-1)?.toLowerCase() ?? ""]);
+  const ecosystems = [...new Set([
+    ...manifests.map((source) => previewManifestEcosystems[source.path.split("/").at(-1)?.toLowerCase() ?? ""]),
+    ...locks.map((source) => previewLockfileEcosystems[source.path.split("/").at(-1)?.toLowerCase() ?? ""]),
+  ])].sort();
+  let dependencyCount = 0;
+  let productionCount = 0;
+  let developmentCount = 0;
+  let pinnedCount = 0;
+  let looseCount = 0;
+  let parsed = false;
+  const findings: PreviewFinding[] = [];
+  const add = (version: string, development = false) => {
+    dependencyCount += 1;
+    if (development) developmentCount += 1;
+    else productionCount += 1;
+    if (/^(?:v?\d+\.){2}\d+(?:[-+][\w.-]+)?$/.test(version.replace(/^==+/, "").trim())) pinnedCount += 1;
+    else looseCount += 1;
+    parsed = true;
+  };
+  const addRequirements = (content: string, development: boolean) => {
+    content.split(/\r?\n/).forEach((line) => {
+      const value = line.split("#")[0].trim();
+      if (!value || value.startsWith("-")) return;
+      const match = value.match(/^([A-Za-z0-9_.-]+)(.*)$/);
+      if (match) add(match[2].trim(), development);
+    });
+  };
+
+  manifests.forEach((source) => {
+    const name = source.path.split("/").at(-1)?.toLowerCase() ?? "";
+    try {
+      if (name === "requirements.txt" || name === "requirements-dev.txt") {
+        addRequirements(source.content, name.endsWith("-dev.txt"));
+      } else if (name === "package.json" || name === "composer.json") {
+        const json = JSON.parse(source.content) as Record<string, unknown>;
+        const sections = name === "package.json"
+          ? [["dependencies", false], ["optionalDependencies", false], ["peerDependencies", false], ["devDependencies", true]]
+          : [["require", false], ["require-dev", true]];
+        sections.forEach(([section, development]) => {
+          const values = json[section as string];
+          if (values && typeof values === "object") {
+            Object.values(values as Record<string, unknown>).forEach((version) => add(String(version), Boolean(development)));
+          }
+        });
+      } else if (name === "pom.xml") {
+        [...source.content.matchAll(/<dependency>([\s\S]*?)<\/dependency>/gi)].forEach((match) => {
+          add(match[1].match(/<version>\s*([^<]+)/i)?.[1]?.trim() ?? "");
+        });
+      } else if (name === "go.mod") {
+        source.content.split(/\r?\n/).forEach((line) => {
+          const match = line.trim().match(/^(?:\S+)\s+(v\d[^\s]+)/);
+          if (match) add(match[1]);
+        });
+      } else if (name === "cargo.toml") {
+        [...source.content.matchAll(/^\s*([A-Za-z0-9_-]+)\s*=\s*["']([^"']+)["']/gm)].forEach((match) => {
+          add(match[2], /dev-dependencies/.test(source.content.slice(0, match.index ?? 0)));
+        });
+      } else if (name === "pyproject.toml") {
+        const dependencyLines = source.content.match(/(?:dependencies|optional-dependencies)[\s\S]*?(?=^\[|\Z)/gim) ?? [];
+        dependencyLines.forEach((block) => addRequirements(block, /optional-dependencies/i.test(block)));
+      } else if (name === "setup.py" || name === "setup.cfg") {
+        const lines = source.content.split(/\r?\n/).filter((line) => /install_requires|extras_require|^\s+[A-Za-z0-9_.-]+(?:==|>=|<=|~=)/.test(line));
+        lines.forEach((line) => addRequirements(line.replace(/.*(?:install_requires|extras_require)\s*=?\s*/, ""), /extras_require/.test(line)));
+      }
+    } catch {
+      findings.push({
+        title: "Malformed dependency manifest",
+        severity: "medium",
+        description: "A dependency manifest was fetched but could not be parsed safely.",
+        evidence: ["Dependency metadata was skipped for this file."],
+        category: "Dependencies",
+        file: source.path,
+        line: 1,
+        recommendation: "Fix the manifest syntax so dependency tooling can read it reliably.",
+      });
+    }
+  });
+
+  if (!manifests.length && !locks.length) {
+    findings.push({
+      title: "No dependency manifest detected",
+      severity: "info",
+      description: "No supported dependency manifest or lockfile was found in the analyzed files.",
+      evidence: ["Checked the supported dependency filenames in the fetched repository evidence."],
+      category: "Dependencies",
+      file: "",
+      line: 1,
+      recommendation: "No action is needed if this repository intentionally has no external dependencies.",
+    });
+  }
+  if (looseCount > 0) {
+    findings.push({
+      title: "Broad dependency version specification",
+      severity: "low",
+      description: `${looseCount} dependency specification(s) are not pinned to an exact version.`,
+      evidence: [`Pinned: ${pinnedCount}; loose or range-based: ${looseCount}.`],
+      category: "Dependencies",
+      file: manifests[0]?.path ?? locks[0]?.path ?? "",
+      line: 1,
+      recommendation: "Use deliberate version ranges or exact pins and review updates through a controlled workflow.",
+    });
+  }
+  const nodeManifest = manifests.find((source) => previewManifestEcosystems[source.path.split("/").at(-1)?.toLowerCase() ?? ""] === "JavaScript/TypeScript");
+  if (nodeManifest && !locks.some((source) => previewLockfileEcosystems[source.path.split("/").at(-1)?.toLowerCase() ?? ""] === "JavaScript/TypeScript")) {
+    findings.push({
+      title: "Dependency manifest has no lockfile",
+      severity: "low",
+      description: "JavaScript/TypeScript dependency metadata is present without a recognized lockfile.",
+      evidence: ["No package-lock.json, npm-shrinkwrap.json, yarn.lock, or pnpm-lock.yaml was fetched."],
+      category: "Dependencies",
+      file: nodeManifest.path,
+      line: 1,
+      recommendation: "Commit a lockfile when the project workflow supports reproducible installs.",
+    });
+  }
+  return {
+    data: {
+      has_dependency_management: Boolean(manifests.length || locks.length),
+      ecosystems,
+      manifests: manifests.map((source) => source.path).sort(),
+      lockfiles: locks.map((source) => source.path).sort(),
+      dependency_count: parsed ? dependencyCount : null,
+      production_dependencies: parsed ? productionCount : null,
+      development_dependencies: parsed ? developmentCount : null,
+      pinned_dependencies: parsed ? pinnedCount : null,
+      loose_dependencies: parsed ? looseCount : null,
+    },
+    findings,
+  };
+}
+
+function previewTestingData(sources: PreviewSource[]): {
+  data: PreviewTesting;
+  findings: PreviewFinding[];
+} {
+  const testFiles = sources.filter((source) => {
+    const name = source.path.split("/").at(-1) ?? "";
+    return /(^test_[^/]+\.py$|^[^/]+_test\.py$|\.(?:test|spec)\.(?:js|jsx|ts|tsx)$|_test\.go$|Test\.java$)/i.test(name);
+  });
+  const directories = [...new Set(sources.flatMap((source) => {
+    const parts = source.path.split("/");
+    return parts.slice(0, -1).flatMap((_, index) => {
+      const part = parts[index].toLowerCase();
+      return ["test", "tests", "__tests__", "spec"].includes(part) ? [parts.slice(0, index + 1).join("/")] : [];
+    });
+  }))].sort();
+  const frameworks = new Set<string>();
+  const evidence = new Set<string>(testFiles.map((source) => source.path));
+  sources.forEach((source) => {
+    const lower = source.content.toLowerCase();
+    const name = source.path.split("/").at(-1)?.toLowerCase() ?? "";
+    if (lower.includes("pytest") || name === "pytest.ini" || name === "tox.ini") { frameworks.add("pytest"); evidence.add(source.path); }
+    if (lower.includes("jest") || name.startsWith("jest.config")) { frameworks.add("Jest"); evidence.add(source.path); }
+    if (lower.includes("vitest") || name.startsWith("vitest.config")) { frameworks.add("Vitest"); evidence.add(source.path); }
+    if (lower.includes("mocha") || name.startsWith(".mocharc")) { frameworks.add("Mocha"); evidence.add(source.path); }
+    if (lower.includes("junit") || lower.includes("org.junit")) { frameworks.add("JUnit"); evidence.add(source.path); }
+    if (/\b(?:import|from)\s+unittest\b/.test(source.content)) { frameworks.add("unittest"); evidence.add(source.path); }
+    if (source.path.endsWith("_test.go")) frameworks.add("Go testing");
+    if (source.content.includes("#[cfg(test)]") || /\bmod\s+tests\b/.test(source.content)) { frameworks.add("Rust test"); evidence.add(source.path); }
+  });
+  const detected = Boolean(testFiles.length || directories.length || frameworks.size);
+  const findings: PreviewFinding[] = detected ? [] : [{
+    title: "No automated tests detected",
+    severity: "medium",
+    description: "No common automated test files, directories, or framework configuration were found.",
+    evidence: ["Test detection checked common naming conventions and framework markers."],
+    category: "Testing",
+    file: "",
+    line: 1,
+    recommendation: "Add automated tests appropriate to the project's runtime and critical behavior.",
+  }];
+  return {
+    data: {
+      tests_detected: detected,
+      test_file_count: testFiles.length,
+      test_directories: directories,
+      frameworks: [...frameworks].sort(),
+      evidence_files: [...evidence].sort(),
+    },
+    findings,
+  };
+}
+
 router.post("/analyze", async (req, res) => {
   try {
     const input = AnalyzeRepositoryBody.parse(req.body);
@@ -403,6 +646,7 @@ router.post("/analyze", async (req, res) => {
     let downloadedSize = 0;
     const languageCounts: Record<string, number> = {};
     const findings: PreviewFinding[] = [];
+    const analyzedSources: PreviewSource[] = [];
     const files: Array<{
       path: string;
       size: number;
@@ -433,6 +677,7 @@ router.post("/analyze", async (req, res) => {
           } else {
             downloadedSize += file.bytes;
             if (language) languageCounts[language] = (languageCounts[language] ?? 0) + 1;
+            analyzedSources.push({ path: entry.path, language, content: file.text });
             findings.push(...previewFindings(entry.path, language, file.text));
           }
         } catch {
@@ -451,6 +696,9 @@ router.post("/analyze", async (req, res) => {
     }
 
     const truncated = Boolean(treePayload.truncated) || relevant.length > MAX_FILES;
+    const dependencyResult = previewDependencyData(analyzedSources);
+    const testingResult = previewTestingData(analyzedSources);
+    findings.push(...dependencyResult.findings, ...testingResult.findings);
     const responseBody = AnalyzeRepositoryResponse.parse({
       repository: {
         url: repository.url,
@@ -478,7 +726,9 @@ router.post("/analyze", async (req, res) => {
         "Review each quality and security signal with its file and line evidence.",
         "Keep analysis read-only; repository code is never executed.",
       ],
-      phase: "Phase 3 — code quality and security analysis",
+      phase: "Phase 4 — dependency analysis and test detection",
+      dependencies: dependencyResult.data,
+      testing: testingResult.data,
       statistics: {
         total_files_found: rawFiles.length,
         files_analyzed: files.filter((file) => !file.skipped).length,

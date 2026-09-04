@@ -28,6 +28,26 @@ export interface RepositoryStatistics {
   truncation_reason: string | null;
 }
 
+export interface DependencyReport {
+  has_dependency_management: boolean;
+  ecosystems: string[];
+  manifests: string[];
+  lockfiles: string[];
+  dependency_count: number | null;
+  production_dependencies: number | null;
+  development_dependencies: number | null;
+  pinned_dependencies: number | null;
+  loose_dependencies: number | null;
+}
+
+export interface TestingReport {
+  tests_detected: boolean;
+  test_file_count: number;
+  test_directories: string[];
+  frameworks: string[];
+  evidence_files: string[];
+}
+
 export interface RepositoryFileSummary {
   path: string;
   size: number;
@@ -64,6 +84,8 @@ export interface HealthReport {
   phase: string;
   statistics: RepositoryStatistics;
   stats: RepositoryStatistics;
+  dependencies: DependencyReport;
+  testing: TestingReport;
   languages: Record<string, number>;
   files: RepositoryFileSummary[];
 }

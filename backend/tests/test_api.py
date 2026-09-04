@@ -63,9 +63,11 @@ def test_valid_github_url(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["repository"]["name"] == "repository"
     assert response.json()["statistics"]["files_analyzed"] == 1
-    assert response.json()["phase"] == "Phase 3 — code quality and security analysis"
+    assert response.json()["phase"] == "Phase 4 — dependency analysis and test detection"
     assert response.json()["findings"][0]["category"] == "Code Quality"
     assert response.json()["findings"][0]["file"] == "README.md"
+    assert response.json()["dependencies"]["has_dependency_management"] is False
+    assert response.json()["testing"]["tests_detected"] is False
 
 
 def test_invalid_github_url() -> None:

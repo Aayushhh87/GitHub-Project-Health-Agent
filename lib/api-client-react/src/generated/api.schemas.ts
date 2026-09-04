@@ -48,6 +48,47 @@ export interface RepositoryStatistics {
   truncation_reason: string | null;
 }
 
+export interface DependencyReport {
+  has_dependency_management: boolean;
+  ecosystems: string[];
+  manifests: string[];
+  lockfiles: string[];
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  dependency_count: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  production_dependencies: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  development_dependencies: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  pinned_dependencies: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  loose_dependencies: number | null;
+}
+
+export interface TestingReport {
+  tests_detected: boolean;
+  /** @minimum 0 */
+  test_file_count: number;
+  test_directories: string[];
+  frameworks: string[];
+  evidence_files: string[];
+}
+
 export type RepositoryFileSummaryType = typeof RepositoryFileSummaryType[keyof typeof RepositoryFileSummaryType];
 
 
@@ -132,6 +173,8 @@ export interface HealthReport {
   phase: string;
   statistics: RepositoryStatistics;
   stats: RepositoryStatistics;
+  dependencies: DependencyReport;
+  testing: TestingReport;
   languages: HealthReportLanguages;
   files: RepositoryFileSummary[];
 }

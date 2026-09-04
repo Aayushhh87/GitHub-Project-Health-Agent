@@ -18,7 +18,7 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Fetches repository metadata, structure, and deterministic code-quality and security findings from safely filtered text-file evidence.
+ * Fetches repository metadata, structure, deterministic quality and security findings, dependency metadata, and test evidence from safely filtered text-file evidence.
  * @summary Analyze a public GitHub repository
  */
 
@@ -58,6 +58,18 @@ export const analyzeRepositoryResponseStatsFilesAnalyzedMin = 0;
 export const analyzeRepositoryResponseStatsFilesSkippedMin = 0;
 
 export const analyzeRepositoryResponseStatsTotalSourceSizeMin = 0;
+
+export const analyzeRepositoryResponseDependenciesDependencyCountMin = 0;
+
+export const analyzeRepositoryResponseDependenciesProductionDependenciesMin = 0;
+
+export const analyzeRepositoryResponseDependenciesDevelopmentDependenciesMin = 0;
+
+export const analyzeRepositoryResponseDependenciesPinnedDependenciesMin = 0;
+
+export const analyzeRepositoryResponseDependenciesLooseDependenciesMin = 0;
+
+export const analyzeRepositoryResponseTestingTestFileCountMin = 0;
 
 export const analyzeRepositoryResponseLanguagesMinOne = 0;
 
@@ -113,6 +125,24 @@ export const AnalyzeRepositoryResponse = zod.object({
   "total_source_size": zod.number().min(analyzeRepositoryResponseStatsTotalSourceSizeMin),
   "truncated": zod.boolean(),
   "truncation_reason": zod.string().nullable()
+}),
+  "dependencies": zod.object({
+  "has_dependency_management": zod.boolean(),
+  "ecosystems": zod.array(zod.string()),
+  "manifests": zod.array(zod.string()),
+  "lockfiles": zod.array(zod.string()),
+  "dependency_count": zod.number().min(analyzeRepositoryResponseDependenciesDependencyCountMin).nullable(),
+  "production_dependencies": zod.number().min(analyzeRepositoryResponseDependenciesProductionDependenciesMin).nullable(),
+  "development_dependencies": zod.number().min(analyzeRepositoryResponseDependenciesDevelopmentDependenciesMin).nullable(),
+  "pinned_dependencies": zod.number().min(analyzeRepositoryResponseDependenciesPinnedDependenciesMin).nullable(),
+  "loose_dependencies": zod.number().min(analyzeRepositoryResponseDependenciesLooseDependenciesMin).nullable()
+}),
+  "testing": zod.object({
+  "tests_detected": zod.boolean(),
+  "test_file_count": zod.number().min(analyzeRepositoryResponseTestingTestFileCountMin),
+  "test_directories": zod.array(zod.string()),
+  "frameworks": zod.array(zod.string()),
+  "evidence_files": zod.array(zod.string())
 }),
   "languages": zod.record(zod.string(), zod.number().min(analyzeRepositoryResponseLanguagesMinOne)),
   "files": zod.array(zod.object({

@@ -91,10 +91,10 @@ function Rail() {
         </div>
 
         <div className="mt-9 border-l border-[#cbe24b]/40 pl-4">
-           <p className="mono-label text-[#cbe24b]">Phase 03</p>
-           <p className="mt-2 text-[13px] leading-5 text-[#d0d3df]">Quality + security</p>
+           <p className="mono-label text-[#cbe24b]">Phase 04</p>
+           <p className="mt-2 text-[13px] leading-5 text-[#d0d3df]">Dependencies + tests</p>
           <p className="mt-2 text-[11px] leading-5 text-[#8990aa]">
-             Surface high-signal issues without executing the repository.
+             Map dependency management and test evidence without executing the repository.
           </p>
         </div>
       </div>
@@ -183,7 +183,7 @@ function ReportView({ report }: { report: HealthReport }) {
             <div className="min-w-[180px] flex-1">
               <div className="flex items-center gap-2 text-[#69852c]">
                 <ShieldCheck size={17} />
-                 <span className="mono-label text-[10px]">Phase 2 complete</span>
+                 <span className="mono-label text-[10px]">Phase 4 complete</span>
               </div>
               <p className="mt-3 max-w-[275px] text-[15px] leading-6 text-[#51525c]" data-testid="text-summary">
                 {report.summary}
@@ -256,6 +256,36 @@ function ReportView({ report }: { report: HealthReport }) {
            </div>
          </div>
        </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div className="panel rounded-[3px] p-6 sm:p-8" data-testid="section-dependencies">
+          <p className="mono-label text-[#73756f]">Dependency map</p>
+          <h3 className="mt-1 text-lg font-bold tracking-[-0.03em] text-[#292b40]">Dependencies</h3>
+          <p className="mt-3 text-[13px] leading-5 text-[#62636a]">
+            {report.dependencies.has_dependency_management
+              ? `${report.dependencies.dependency_count ?? 'Unknown'} dependencies across ${report.dependencies.ecosystems.join(', ')}.`
+              : 'No supported dependency management detected.'}
+          </p>
+          <div className="mt-4 space-y-2 border-t border-[#e2dfd3] pt-4 text-[11px] text-[#777871]">
+            <p><span className="font-semibold text-[#292b40]">Manifests:</span> {report.dependencies.manifests.join(', ') || 'none'}</p>
+            <p><span className="font-semibold text-[#292b40]">Lockfiles:</span> {report.dependencies.lockfiles.join(', ') || 'none'}</p>
+            <p><span className="font-semibold text-[#292b40]">Pinned / loose:</span> {report.dependencies.pinned_dependencies ?? '—'} / {report.dependencies.loose_dependencies ?? '—'}</p>
+          </div>
+        </div>
+        <div className="panel rounded-[3px] p-6 sm:p-8" data-testid="section-testing">
+          <p className="mono-label text-[#73756f]">Test evidence</p>
+          <h3 className="mt-1 text-lg font-bold tracking-[-0.03em] text-[#292b40]">Automated tests</h3>
+          <p className="mt-3 text-[13px] leading-5 text-[#62636a]">
+            {report.testing.tests_detected
+              ? `${report.testing.test_file_count} test file${report.testing.test_file_count === 1 ? '' : 's'} detected.`
+              : 'No automated tests detected.'}
+          </p>
+          <div className="mt-4 space-y-2 border-t border-[#e2dfd3] pt-4 text-[11px] text-[#777871]">
+            <p><span className="font-semibold text-[#292b40]">Frameworks:</span> {report.testing.frameworks.join(', ') || 'none detected'}</p>
+            <p><span className="font-semibold text-[#292b40]">Directories:</span> {report.testing.test_directories.join(', ') || 'none detected'}</p>
+          </div>
+        </div>
+      </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.45fr_0.85fr]">
         <div className="panel rounded-[3px] p-6 sm:p-8">
@@ -398,12 +428,12 @@ export default function Home() {
           <section className="stagger-in relative pt-16 sm:pt-20">
             <div className="pointer-events-none absolute -right-8 top-10 hidden h-44 w-44 rounded-full border border-[#d9ddae] lg:block" />
             <div className="pointer-events-none absolute -right-1 top-[6.75rem] hidden h-24 w-24 rounded-full border border-[#d9ddae] lg:block" />
-             <p className="mono-label text-[#6f793c]">03 / analyze the evidence</p>
+             <p className="mono-label text-[#6f793c]">04 / map the project signals</p>
             <h1 className="display-type mt-5 max-w-3xl text-[3.4rem] font-bold leading-[0.97] text-[#292b40] sm:text-[5.7rem]" data-testid="text-page-title">
               Know what you&apos;re<br /><span className="text-[#2f3877]">walking into.</span>
             </h1>
             <p className="mt-7 max-w-xl text-[15px] leading-7 text-[#62636a] sm:text-base">
-               A fast, evidence-driven read of a public GitHub project. Paste a repository, then inspect quality and security signals before you invest the time.
+               A fast, evidence-driven read of a public GitHub project. Paste a repository, then inspect quality, security, dependency, and test signals before you invest the time.
             </p>
 
             <form className="panel mt-10 max-w-3xl rounded-[3px] p-2 sm:flex sm:items-center" onSubmit={handleSubmit} data-testid="form-analyze-repository">

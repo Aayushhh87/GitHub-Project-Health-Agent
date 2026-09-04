@@ -6,11 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CategoryScore } from './categoryScore';
+import type { DependencyReport } from './dependencyReport';
 import type { Finding } from './finding';
 import type { HealthReportLanguages } from './healthReportLanguages';
 import type { RepositoryFileSummary } from './repositoryFileSummary';
 import type { RepositoryInfo } from './repositoryInfo';
 import type { RepositoryStatistics } from './repositoryStatistics';
+import type { TestingReport } from './testingReport';
 
 export interface HealthReport {
   repository: RepositoryInfo;
@@ -27,6 +29,8 @@ export interface HealthReport {
   phase: string;
   statistics: RepositoryStatistics;
   stats: RepositoryStatistics;
+  dependencies: DependencyReport;
+  testing: TestingReport;
   languages: HealthReportLanguages;
   files: RepositoryFileSummary[];
 }

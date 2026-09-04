@@ -66,6 +66,26 @@ class Finding(BaseModel):
     recommendation: str | None = None
 
 
+class DependencyReport(BaseModel):
+    has_dependency_management: bool = False
+    ecosystems: list[str] = Field(default_factory=list)
+    manifests: list[str] = Field(default_factory=list)
+    lockfiles: list[str] = Field(default_factory=list)
+    dependency_count: int | None = None
+    production_dependencies: int | None = None
+    development_dependencies: int | None = None
+    pinned_dependencies: int | None = None
+    loose_dependencies: int | None = None
+
+
+class TestingReport(BaseModel):
+    tests_detected: bool = False
+    test_file_count: int = 0
+    test_directories: list[str] = Field(default_factory=list)
+    frameworks: list[str] = Field(default_factory=list)
+    evidence_files: list[str] = Field(default_factory=list)
+
+
 class RepositorySnapshot(BaseModel):
     metadata: RepositoryInfo
     files: list[RepositoryFile] = Field(default_factory=list)
@@ -77,6 +97,8 @@ class RepositorySnapshot(BaseModel):
     truncated: bool = False
     truncation_reason: str | None = None
     findings: list[Finding] = Field(default_factory=list)
+    dependencies: DependencyReport = Field(default_factory=DependencyReport)
+    testing: TestingReport = Field(default_factory=TestingReport)
 
 
 class RepositoryStatistics(BaseModel):
@@ -104,5 +126,7 @@ class HealthReport(BaseModel):
     phase: str
     statistics: RepositoryStatistics = Field(default_factory=RepositoryStatistics)
     stats: RepositoryStatistics = Field(default_factory=RepositoryStatistics)
+    dependencies: DependencyReport = Field(default_factory=DependencyReport)
+    testing: TestingReport = Field(default_factory=TestingReport)
     languages: dict[str, int] = Field(default_factory=dict)
     files: list[RepositoryFileSummary] = Field(default_factory=list)

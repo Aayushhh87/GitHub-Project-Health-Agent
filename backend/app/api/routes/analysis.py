@@ -34,7 +34,7 @@ PHASE_ONE_CATEGORIES = (
 async def analyze_repository(
     payload: AnalysisRequest,
 ) -> HealthReport | JSONResponse:
-    """Fetch and normalize repository evidence without running analyzers."""
+    """Fetch repository evidence and run safe deterministic analyzers."""
     try:
         repository = parse_github_url(payload.repository_url)
         snapshot = await analyzer.analyze(payload.repository_url)
@@ -65,7 +65,8 @@ async def analyze_repository(
     summary = (
         f"Collected {snapshot.files_analyzed} text files from "
         f"{snapshot.metadata.owner}/{snapshot.metadata.name} without cloning it. "
-        f"Found {len(snapshot.findings)} deterministic quality and security signals."
+        f"Found {len(snapshot.findings)} deterministic quality, security, dependency, "
+        f"and testing signals."
     )
     if snapshot.files_skipped:
         summary += f" {snapshot.files_skipped} files were skipped safely."
@@ -105,12 +106,15 @@ async def analyze_repository(
         summary=summary,
         findings=snapshot.findings,
         recommendations=[
-            "Review quality and security findings alongside their file and line evidence.",
-            "Keep analysis read-only; repository code is never executed.",
+            "Review findings alongside their file, line, and manifest evidence.",
+            "Use committed lockfiles and deliberate version ranges where the ecosystem supports them.",
+            "Keep analysis read-only; dependencies are never installed and repository code is never executed.",
         ],
-        phase="Phase 3 — code quality and security analysis",
+        phase="Phase 4 — dependency analysis and test detection",
         statistics=statistics,
         stats=statistics,
+        dependencies=snapshot.dependencies,
+        testing=snapshot.testing,
         languages=language_counts(snapshot),
         files=[
             RepositoryFileSummary(

@@ -43,7 +43,7 @@ export default function Home() {
           </span>
           <span>Project Health Agent</span>
         </div>
-          <span className="phase-chip">PHASE 3 / QUALITY + SECURITY</span>
+          <span className="phase-chip">PHASE 4 / DEPENDENCIES + TESTS</span>
       </header>
 
       <section className="hero">
@@ -51,7 +51,8 @@ export default function Home() {
         <h1>See how healthy a project really is.</h1>
         <p className="hero-copy">
           Enter a public GitHub repository to collect its metadata, structure, and
-          deterministic quality and security findings without executing anything locally.
+          deterministic quality, security, dependency, and test evidence without
+          executing anything locally.
         </p>
 
         <form className="analyze-form" onSubmit={handleSubmit}>
@@ -202,13 +203,41 @@ export default function Home() {
               <p className="muted">No quality or security findings were detected.</p>
             )}
           </div>
+          <div className="analysis-metadata">
+            <article>
+              <h3>Dependencies</h3>
+              <p>
+                {report.dependencies.has_dependency_management
+                  ? `${report.dependencies.dependency_count ?? "Unknown"} dependencies across ${report.dependencies.ecosystems.join(", ")}.`
+                  : "No supported dependency management detected."}
+              </p>
+              <small>
+                Manifests: {report.dependencies.manifests.join(", ") || "none"}
+                <br />
+                Lockfiles: {report.dependencies.lockfiles.join(", ") || "none"}
+              </small>
+            </article>
+            <article>
+              <h3>Automated tests</h3>
+              <p>
+                {report.testing.tests_detected
+                  ? `${report.testing.test_file_count} test file${report.testing.test_file_count === 1 ? "" : "s"} detected.`
+                  : "No automated tests detected."}
+              </p>
+              <small>
+                Frameworks: {report.testing.frameworks.join(", ") || "none detected"}
+                <br />
+                Directories: {report.testing.test_directories.join(", ") || "none detected"}
+              </small>
+            </article>
+          </div>
           <div className="next-step">
             <span className="step-index">01</span>
             <div>
               <strong>Static analysis complete</strong>
               <p>
-                The next phase can now analyze this structured snapshot for
-                quality, security, and maintenance signals.
+                 Dependency and test evidence are now available alongside the
+                 quality and security findings.
               </p>
             </div>
           </div>
