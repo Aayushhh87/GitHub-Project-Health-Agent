@@ -63,7 +63,11 @@ def test_valid_github_url(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["repository"]["name"] == "repository"
     assert response.json()["statistics"]["files_analyzed"] == 1
-    assert response.json()["phase"] == "Phase 4 — dependency analysis and test detection"
+    assert response.json()["phase"] == "Phase 5 — AI analysis and deterministic scoring"
+    assert response.json()["overall_score"] is not None
+    assert isinstance(response.json()["category_scores"], list)
+    assert len(response.json()["category_scores"]) == 5
+    assert response.json()["ai_enabled"] is False
     assert response.json()["findings"][0]["category"] == "Code Quality"
     assert response.json()["findings"][0]["file"] == "README.md"
     assert response.json()["dependencies"]["has_dependency_management"] is False
