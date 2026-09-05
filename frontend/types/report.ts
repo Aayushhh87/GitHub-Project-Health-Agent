@@ -88,4 +88,9 @@ export interface HealthReport {
   testing: TestingReport;
   languages: Record<string, number>;
   files: RepositoryFileSummary[];
+  strengths?: string[];
+  weaknesses?: string[];
+  architecture_insight?: string | null;
+  documentation_insight?: string | null;
+  ai_enabled?: boolean;
 }

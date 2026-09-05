@@ -130,3 +130,9 @@ class HealthReport(BaseModel):
     testing: TestingReport = Field(default_factory=TestingReport)
     languages: dict[str, int] = Field(default_factory=dict)
     files: list[RepositoryFileSummary] = Field(default_factory=list)
+    # Optional AI synthesis fields (Milestone 5). Safe defaults preserve M1-4 clients.
+    strengths: list[str] = Field(default_factory=list)
+    weaknesses: list[str] = Field(default_factory=list)
+    architecture_insight: str | None = None
+    documentation_insight: str | None = None
+    ai_enabled: bool = False
