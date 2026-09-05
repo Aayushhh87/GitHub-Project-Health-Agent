@@ -1,28 +1,21 @@
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
+from app.ai.analyzer import analyze_with_ai
 from app.analyzer.repository import RepositoryAnalyzer, language_counts
 from app.github.client import GitHubApiError
 from app.github.url import GitHubUrlError, parse_github_url
 from app.models.report import (
     AnalysisRequest,
-    CategoryScore,
-    CategoryStatus,
     HealthReport,
-    RepositoryInfo,
     RepositoryFileSummary,
+    RepositoryInfo,
     RepositoryStatistics,
 )
+from app.scoring.engine import calculate_scores
 
 router = APIRouter()
 analyzer = RepositoryAnalyzer()
-
-PHASE_ONE_CATEGORIES = (
-    "repository structure",
-    "documentation",
-    "engineering practices",
-    "maintenance signals",
-)
 
 
 @router.post(
@@ -34,7 +27,7 @@ PHASE_ONE_CATEGORIES = (
 async def analyze_repository(
     payload: AnalysisRequest,
 ) -> HealthReport | JSONResponse:
-    """Fetch repository evidence and run safe deterministic analyzers."""
+    """Fetch repository evidence, run deterministic analyzers, score, and optionally synthesize with AI."""
     try:
         repository = parse_github_url(payload.repository_url)
         snapshot = await analyzer.analyze(payload.repository_url)
@@ -62,14 +55,47 @@ async def analyze_repository(
             content={"error": "Repository ingestion failed unexpectedly."},
         )
 
+    category_scores, overall_score = calculate_scores(snapshot)
+
     summary = (
         f"Collected {snapshot.files_analyzed} text files from "
         f"{snapshot.metadata.owner}/{snapshot.metadata.name} without cloning it. "
         f"Found {len(snapshot.findings)} deterministic quality, security, dependency, "
-        f"and testing signals."
+        f"and testing signals. Overall health score: {overall_score}."
     )
     if snapshot.files_skipped:
         summary += f" {snapshot.files_skipped} files were skipped safely."
+
+    recommendations = [
+        "Review findings alongside their file, line, and manifest evidence.",
+        "Use committed lockfiles and deliberate version ranges where the ecosystem supports them.",
+        "Keep analysis read-only; dependencies are never installed and repository code is never executed.",
+    ]
+
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    architecture_insight: str | None = None
+    documentation_insight: str | None = None
+    ai_enabled = False
+
+    ai_result = await analyze_with_ai(
+        snapshot,
+        overall_score=overall_score,
+        category_scores=[
+            {"category": c.category, "score": c.score, "status": c.status.value}
+            for c in category_scores
+        ],
+    )
+    if ai_result is not None:
+        ai_enabled = True
+        if ai_result.summary:
+            summary = ai_result.summary
+        if ai_result.recommendations:
+            recommendations = ai_result.recommendations
+        strengths = ai_result.strengths
+        weaknesses = ai_result.weaknesses
+        architecture_insight = ai_result.architecture_insight or None
+        documentation_insight = ai_result.documentation_insight or None
 
     statistics = RepositoryStatistics(
         total_files_found=snapshot.total_files_found,
@@ -94,23 +120,12 @@ async def analyze_repository(
             size_kb=snapshot.metadata.size_kb,
             topics=snapshot.metadata.topics,
         ),
-        overall_score=None,
-        category_scores=[
-            CategoryScore(
-                category=category,
-                score=None,
-                status=CategoryStatus.NOT_STARTED,
-            )
-            for category in PHASE_ONE_CATEGORIES
-        ],
+        overall_score=overall_score,
+        category_scores=category_scores,
         summary=summary,
         findings=snapshot.findings,
-        recommendations=[
-            "Review findings alongside their file, line, and manifest evidence.",
-            "Use committed lockfiles and deliberate version ranges where the ecosystem supports them.",
-            "Keep analysis read-only; dependencies are never installed and repository code is never executed.",
-        ],
-        phase="Phase 4 — dependency analysis and test detection",
+        recommendations=recommendations,
+        phase="Phase 5 — AI analysis and deterministic scoring",
         statistics=statistics,
         stats=statistics,
         dependencies=snapshot.dependencies,
@@ -126,4 +141,9 @@ async def analyze_repository(
             )
             for file in snapshot.files
         ],
+        strengths=strengths,
+        weaknesses=weaknesses,
+        architecture_insight=architecture_insight,
+        documentation_insight=documentation_insight,
+        ai_enabled=ai_enabled,
     )
