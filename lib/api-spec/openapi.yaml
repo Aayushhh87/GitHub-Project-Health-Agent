@@ -31,7 +31,7 @@ paths:
       operationId: analyzeRepository
       tags: [analysis]
       summary: Analyze a public GitHub repository
-      description: Fetches repository metadata, structure, deterministic quality and security findings, dependency metadata, and test evidence from safely filtered text-file evidence.
+      description: Fetches repository evidence, runs deterministic analyzers, computes category scores, and optionally synthesizes an AI narrative via OpenRouter.
       requestBody:
         required: true
         content:
@@ -319,6 +319,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RepositoryFileSummary"
+        strengths:
+          type: array
+          items:
+            type: string
+        weaknesses:
+          type: array
+          items:
+            type: string
+        architecture_insight:
+          type: ["string", "null"]
+        documentation_insight:
+          type: ["string", "null"]
+        ai_enabled:
+          type: boolean
       required:
         - repository
         - overall_score
@@ -340,4 +354,3 @@ components:
           type: string
       required:
         - error
-
