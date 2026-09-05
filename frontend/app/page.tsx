@@ -43,7 +43,7 @@ export default function Home() {
           </span>
           <span>Project Health Agent</span>
         </div>
-          <span className="phase-chip">PHASE 4 / DEPENDENCIES + TESTS</span>
+          <span className="phase-chip">PHASE 5 / AI + SCORING</span>
       </header>
 
       <section className="hero">
@@ -101,7 +101,11 @@ export default function Home() {
                 {report.repository.owner}/{report.repository.name}
               </h2>
             </div>
-            <span className="status-badge">Read complete</span>
+            <span className="status-badge">
+              {report.overall_score != null
+                ? `Score ${report.overall_score}`
+                : "Read complete"}
+            </span>
           </div>
           <p className="report-summary">{report.summary}</p>
           {report.repository.description && (
@@ -170,7 +174,9 @@ export default function Home() {
             {report.category_scores.map((category) => (
               <article className="category" key={category.category}>
                 <span>{category.category}</span>
-                <strong>—</strong>
+                <strong>
+                  {category.score != null ? category.score : "—"}
+                </strong>
                 <small>{category.status.replace("_", " ")}</small>
               </article>
             ))}
@@ -231,13 +237,73 @@ export default function Home() {
               </small>
             </article>
           </div>
+          {(report.strengths?.length ||
+            report.weaknesses?.length ||
+            report.architecture_insight ||
+            report.documentation_insight) && (
+            <div className="analysis-metadata">
+              {report.strengths && report.strengths.length > 0 && (
+                <article>
+                  <h3>Strengths</h3>
+                  <ul>
+                    {report.strengths.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </article>
+              )}
+              {report.weaknesses && report.weaknesses.length > 0 && (
+                <article>
+                  <h3>Weaknesses</h3>
+                  <ul>
+                    {report.weaknesses.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </article>
+              )}
+              {report.architecture_insight && (
+                <article>
+                  <h3>Architecture insight</h3>
+                  <p>{report.architecture_insight}</p>
+                </article>
+              )}
+              {report.documentation_insight && (
+                <article>
+                  <h3>Documentation insight</h3>
+                  <p>{report.documentation_insight}</p>
+                </article>
+              )}
+            </div>
+          )}
+          {report.recommendations.length > 0 && (
+            <div className="findings">
+              <div className="findings-heading">
+                <h3>Recommendations</h3>
+              </div>
+              <ul className="finding-list">
+                {report.recommendations.map((item) => (
+                  <li key={item}>
+                    <p>{item}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="next-step">
             <span className="step-index">01</span>
             <div>
-              <strong>Static analysis complete</strong>
+              <strong>
+                {report.ai_enabled
+                  ? "AI synthesis and scoring complete"
+                  : "Deterministic scoring complete"}
+              </strong>
               <p>
-                 Dependency and test evidence are now available alongside the
-                 quality and security findings.
+                Category scores are calculated from severity-weighted findings.
+                Architecture insight does not affect the overall score.
+                {report.ai_enabled
+                  ? ""
+                  : " Set OPENROUTER_API_KEY to enable AI narrative synthesis."}
               </p>
             </div>
           </div>
