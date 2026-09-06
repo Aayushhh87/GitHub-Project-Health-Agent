@@ -303,7 +303,7 @@ export default function Home() {
                 Architecture insight does not affect the overall score.
                 {report.ai_enabled
                   ? ""
-                  : " Set OPENROUTER_API_KEY to enable AI narrative synthesis."}
+                  : " Set GEMINI_API_KEY to enable AI narrative synthesis."}
               </p>
             </div>
           </div>
