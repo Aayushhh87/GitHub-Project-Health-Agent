@@ -31,7 +31,7 @@ paths:
       operationId: analyzeRepository
       tags: [analysis]
       summary: Analyze a public GitHub repository
-      description: Fetches repository evidence, runs deterministic analyzers, computes category scores, and optionally synthesizes an AI narrative via OpenRouter.
+      description: Fetches repository evidence, runs deterministic analyzers, computes category scores, and optionally synthesizes an AI narrative via Gemini.
       requestBody:
         required: true
         content:

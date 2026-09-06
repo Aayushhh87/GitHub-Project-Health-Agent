@@ -10,12 +10,12 @@ An evidence-driven foundation for analyzing the health of public GitHub reposito
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `PYTHONPATH=backend python -m pytest backend/tests` — run portable backend tests
-- Required backend env: optional `GITHUB_TOKEN`, reserved `OPENROUTER_API_KEY`
+- Required backend env: optional `GITHUB_TOKEN`, optional `GEMINI_API_KEY` (and optional `GEMINI_MODEL`)
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- Portable API: FastAPI + Pydantic + httpx
+- Portable API: FastAPI + Pydantic + httpx + google-genai
 - Preview API adapter: Express 5
 - Portable frontend: Next.js + TypeScript
 - Preview frontend: React + Vite
@@ -26,10 +26,12 @@ An evidence-driven foundation for analyzing the health of public GitHub reposito
 ## Where things live
 
 - `backend/app/main.py` — portable FastAPI entrypoint
-- `backend/app/api/routes/analysis.py` — Phase 1 analysis route
+- `backend/app/api/routes/analysis.py` — analysis route (scoring + optional Gemini synthesis)
 - `backend/app/github/` — GitHub REST client boundaries and URL parsing
 - `backend/app/models/report.py` — typed report contract
 - `backend/app/utils/filtering.py` — source collection limits and filters
+- `backend/app/ai/analyzer.py` — Gemini AI synthesis
+- `backend/app/scoring/engine.py` — deterministic scoring
 - `frontend/app/` — portable Next.js UI
 - `frontend/lib/api.ts` — frontend API boundary
 - `lib/api-spec/openapi.yaml` — shared preview API contract
@@ -38,14 +40,14 @@ An evidence-driven foundation for analyzing the health of public GitHub reposito
 ## Architecture decisions
 
 - The portable source is kept in root `frontend/` and `backend/`; Replit artifacts are preview adapters.
-- The Phase 1 analyzer returns a typed placeholder report instead of pretending to score without evidence.
 - GitHub access is REST-only and token-based through environment variables.
+- AI narrative synthesis uses the official `google-genai` SDK and fails open when the key is missing.
 - The OpenAPI document generates the preview TypeScript client and Zod schemas.
 
 ## Product
 
 Users can submit a public GitHub repository URL, receive validation feedback, and
-see the typed Phase 1 report shape with category coverage and next-step guidance.
+see scores plus optional Gemini narrative synthesis when `GEMINI_API_KEY` is set.
 
 ## User preferences
 
@@ -54,7 +56,7 @@ see the typed Phase 1 report shape with category coverage and next-step guidance
 ## Gotchas
 
 - Re-run API codegen after editing `lib/api-spec/openapi.yaml`.
-- Do not introduce analyzers or scoring until their controlled phase is requested.
+- Set `GEMINI_API_KEY` in `backend/.env` to enable AI synthesis; scoring works without it.
 
 ## Pointers
 
