@@ -1,11 +1,11 @@
-"""Tests for OpenRouter AI analyzer and graceful fallback."""
+"""Tests for Gemini AI analyzer and graceful fallback."""
 
 from __future__ import annotations
 
 import asyncio
 import json
-
-import httpx
+import sys
+from types import ModuleType, SimpleNamespace
 
 from app.ai.analyzer import AIAnalysisResult, analyze_with_ai, _parse_ai_json
 from app.models.report import RepositoryInfo, RepositorySnapshot
@@ -29,8 +29,31 @@ def _snapshot() -> RepositorySnapshot:
     )
 
 
+def _install_fake_genai(monkeypatch, *, client):
+    """Install a minimal google.genai package into sys.modules for local imports."""
+
+    types_mod = ModuleType("google.genai.types")
+
+    class GenerateContentConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    types_mod.GenerateContentConfig = GenerateContentConfig
+
+    genai_mod = ModuleType("google.genai")
+    genai_mod.Client = lambda **kwargs: client
+    genai_mod.types = types_mod
+
+    google_mod = ModuleType("google")
+    google_mod.genai = genai_mod
+
+    monkeypatch.setitem(sys.modules, "google", google_mod)
+    monkeypatch.setitem(sys.modules, "google.genai", genai_mod)
+    monkeypatch.setitem(sys.modules, "google.genai.types", types_mod)
+
+
 def test_missing_api_key_returns_none(monkeypatch) -> None:
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     async def _run():
         return await analyze_with_ai(_snapshot(), overall_score=80.0)
@@ -38,9 +61,9 @@ def test_missing_api_key_returns_none(monkeypatch) -> None:
     assert asyncio.run(_run()) is None
 
 
-def test_openrouter_success(monkeypatch) -> None:
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-real")
-    monkeypatch.setenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+def test_gemini_success(monkeypatch) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-2.0-flash")
 
     payload = {
         "summary": "Solid foundation with room to improve tests.",
@@ -51,30 +74,18 @@ def test_openrouter_success(monkeypatch) -> None:
         "recommendations": ["Add integration tests"],
     }
 
-    class FakeResponse:
-        def raise_for_status(self) -> None:
-            return None
+    async def fake_generate_content(*, model, contents, config):
+        assert model == "gemini-2.0-flash"
+        assert isinstance(contents, str)
+        assert "evidence" in contents.lower()
+        return SimpleNamespace(text=json.dumps(payload))
 
-        def json(self):
-            return {"choices": [{"message": {"content": json.dumps(payload)}}]}
-
-    class FakeClient:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args) -> None:
-            return None
-
-        async def post(self, url, headers=None, json=None):
-            assert "Authorization" in headers
-            assert headers["Authorization"] == "Bearer test-key-not-real"
-            assert "openrouter.ai" in url
-            return FakeResponse()
-
-    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
+    client = SimpleNamespace(
+        aio=SimpleNamespace(
+            models=SimpleNamespace(generate_content=fake_generate_content)
+        )
+    )
+    _install_fake_genai(monkeypatch, client=client)
 
     async def _run():
         return await analyze_with_ai(_snapshot(), overall_score=72.5)
@@ -86,23 +97,16 @@ def test_openrouter_success(monkeypatch) -> None:
     assert result.recommendations == ["Add integration tests"]
 
 
-def test_http_failure_returns_none(monkeypatch) -> None:
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+def test_api_failure_returns_none(monkeypatch) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
-    class BoomClient:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
+    async def boom(*, model, contents, config):
+        raise RuntimeError("network down")
 
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args) -> None:
-            return None
-
-        async def post(self, *args, **kwargs):
-            raise httpx.ConnectError("network down")
-
-    monkeypatch.setattr(httpx, "AsyncClient", BoomClient)
+    client = SimpleNamespace(
+        aio=SimpleNamespace(models=SimpleNamespace(generate_content=boom))
+    )
+    _install_fake_genai(monkeypatch, client=client)
 
     async def _run():
         return await analyze_with_ai(_snapshot())
@@ -111,29 +115,15 @@ def test_http_failure_returns_none(monkeypatch) -> None:
 
 
 def test_invalid_json_returns_none(monkeypatch) -> None:
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
-    class FakeResponse:
-        def raise_for_status(self) -> None:
-            return None
+    async def bad_json(*, model, contents, config):
+        return SimpleNamespace(text="not-json")
 
-        def json(self):
-            return {"choices": [{"message": {"content": "not-json"}}]}
-
-    class FakeClient:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args) -> None:
-            return None
-
-        async def post(self, *args, **kwargs):
-            return FakeResponse()
-
-    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
+    client = SimpleNamespace(
+        aio=SimpleNamespace(models=SimpleNamespace(generate_content=bad_json))
+    )
+    _install_fake_genai(monkeypatch, client=client)
 
     async def _run():
         return await analyze_with_ai(_snapshot())
@@ -143,8 +133,15 @@ def test_invalid_json_returns_none(monkeypatch) -> None:
 
 def test_parse_ai_json_with_fences() -> None:
     raw = """```json
-{"summary":"ok","strengths":[],"weaknesses":[],"architecture_insight":"","documentation_insight":"","recommendations":[]}
+{\"summary\":\"ok\",\"strengths\":[],\"weaknesses\":[],\"architecture_insight\":\"\",\"documentation_insight\":\"\",\"recommendations\":[]}
 ```"""
+    # Fix: use real JSON without over-escaping in the actual file - rewritten below
+    raw = (
+        "```json\n"
+        '{"summary":"ok","strengths":[],"weaknesses":[],'
+        '"architecture_insight":"","documentation_insight":"","recommendations":[]}\n'
+        "```"
+    )
     parsed = _parse_ai_json(raw)
     assert parsed is not None
     assert parsed.summary == "ok"

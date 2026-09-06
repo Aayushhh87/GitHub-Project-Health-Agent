@@ -1,4 +1,4 @@
-"""OpenRouter-backed AI synthesis over sanitized analyzer evidence only."""
+"""Gemini-backed AI synthesis over sanitized analyzer evidence only."""
 
 from __future__ import annotations
 
@@ -7,16 +7,23 @@ import os
 import re
 from typing import Any
 
-import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from app.models.report import Finding, RepositorySnapshot
 
-DEFAULT_MODEL = "openai/gpt-4o-mini"
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_MODEL = "gemini-2.0-flash"
 MAX_FINDINGS = 40
 MAX_EVIDENCE_CHARS = 180
-REQUEST_TIMEOUT = 45.0
+
+_SYSTEM_INSTRUCTION = (
+    "You are a senior software engineering reviewer. "
+    "Respond with a single JSON object only (no markdown fences). "
+    "Use only the provided evidence. Never invent files, secrets, or scores. "
+    "Keys required: summary (string), strengths (string array), "
+    "weaknesses (string array), architecture_insight (string), "
+    "documentation_insight (string), recommendations (string array). "
+    "Keep each string concise and actionable."
+)
 
 
 class AIAnalysisResult(BaseModel):
@@ -36,63 +43,36 @@ async def analyze_with_ai(
     overall_score: float | None = None,
     category_scores: list[dict[str, Any]] | None = None,
 ) -> AIAnalysisResult | None:
-    """Call OpenRouter with sanitized evidence. Return None on any failure."""
-    api_key = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+    """Call Gemini with sanitized evidence. Return None on any failure."""
+    api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
     if not api_key:
         return None
 
-    model = (os.getenv("OPENROUTER_MODEL") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    model = (os.getenv("GEMINI_MODEL") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
     payload = _build_evidence_payload(snapshot, overall_score, category_scores)
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are a senior software engineering reviewer. "
-                "Respond with a single JSON object only (no markdown fences). "
-                "Use only the provided evidence. Never invent files, secrets, or scores. "
-                "Keys required: summary (string), strengths (string array), "
-                "weaknesses (string array), architecture_insight (string), "
-                "documentation_insight (string), recommendations (string array). "
-                "Keep each string concise and actionable."
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                "Produce a project health narrative from this sanitized evidence JSON:\n"
-                + json.dumps(payload, ensure_ascii=False)
-            ),
-        },
-    ]
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/Aayushhh87/GitHub-Project-Health-Agent",
-        "X-Title": "GitHub Project Health Agent",
-    }
-    body = {
-        "model": model,
-        "messages": messages,
-        "temperature": 0.2,
-        "response_format": {"type": "json_object"},
-    }
+    user_content = (
+        "Produce a project health narrative from this sanitized evidence JSON:\n"
+        + json.dumps(payload, ensure_ascii=False)
+    )
 
     try:
-        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-            response = await client.post(OPENROUTER_URL, headers=headers, json=body)
-            response.raise_for_status()
-            data = response.json()
-        content = (
-            data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+        response = await client.aio.models.generate_content(
+            model=model,
+            contents=user_content,
+            config=types.GenerateContentConfig(
+                system_instruction=_SYSTEM_INSTRUCTION,
+                temperature=0.2,
+                response_mime_type="application/json",
+            ),
         )
+        content = getattr(response, "text", None)
         if not isinstance(content, str) or not content.strip():
             return None
         return _parse_ai_json(content)
-    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, ValidationError):
-        return None
     except Exception:
         return None
 
