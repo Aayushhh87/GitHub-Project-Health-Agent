@@ -5,19 +5,18 @@ public GitHub repository and produces a structured Project Health Report.
 
 ## Current phase
 
-**Phase 1 — Portable Project Foundation**
+**Phase 5 — AI Analysis + Deterministic Scoring**
 
-This phase establishes the API contract, repository URL validation, GitHub REST
-client boundaries, source-file filtering limits, typed report models, and a
-small web interface. The `/api/analyze` endpoint currently validates the
-repository URL and returns a structured placeholder report. It does not yet
-download repository evidence or calculate a score.
+The system collects repository evidence via the GitHub REST API, runs
+deterministic analyzers (quality, security, dependencies, tests), computes
+weighted category scores, and optionally synthesizes a narrative with Gemini
+when `GEMINI_API_KEY` is configured.
 
 ## Planned architecture
 
 ```text
 frontend/  Next.js + TypeScript + Tailwind-ready UI
-backend/   FastAPI + Pydantic + httpx GitHub REST client
+backend/   FastAPI + Pydantic + httpx GitHub REST client + google-genai
 docs/      Architecture and product documentation
 ```
 
@@ -31,6 +30,7 @@ will not be cloned or downloaded with shell commands.
 - Python 3.11+
 - FastAPI and Pydantic
 - httpx for GitHub REST API requests
+- google-genai for optional Gemini AI synthesis
 - Next.js, TypeScript, and React
 - React + Vite preview app in `artifacts/github-project-health-agent`
 - GitHub REST API
@@ -66,9 +66,6 @@ github-project-health-agent/
 └── .gitignore
 ```
 
-The future analyzer, AI, and scoring directories are reserved architectural
-boundaries; they are intentionally empty until their controlled phases begin.
-
 ## Local setup
 
 ### Backend
@@ -78,16 +75,17 @@ From the repository root:
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
+source .venv/bin/activate       # Windows: .venv\\Scripts\\activate
 pip install -r requirements.txt
 cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
 Secrets are supplied only through environment variables. Never commit `.env`
-files or real credentials. `GITHUB_TOKEN` is optional in Phase 1 and is
-reserved for later GitHub API evidence collection. `OPENROUTER_API_KEY` is
-reserved for the later AI phase.
+files or real credentials. `GITHUB_TOKEN` is optional and is used for higher
+GitHub API rate limits. `GEMINI_API_KEY` enables optional AI narrative
+synthesis (scoring still runs without it). `GEMINI_MODEL` defaults to
+`gemini-2.0-flash`.
 
 ### Frontend
 
@@ -107,8 +105,8 @@ default. Set `BACKEND_URL` to point to another local backend, or set
 
 The workspace preview uses the React + Vite app under
 `artifacts/github-project-health-agent` and the existing API service under
-`artifacts/api-server`. These are a preview adapter around the same Phase 1
-contract; the portable source of truth remains `frontend/` and `backend/`.
+`artifacts/api-server`. These are a preview adapter around the same contract;
+the portable source of truth remains `frontend/` and `backend/`.
 
 ## API
 
@@ -130,15 +128,15 @@ Request:
 }
 ```
 
-The response contains typed repository information, category score placeholders,
-summary, findings, recommendations, and the current development phase.
+The response contains typed repository information, category scores, overall
+score, summary, findings, recommendations, and optional AI synthesis fields.
 
 To try the API locally:
 
 ```bash
 curl http://localhost:8000/
-curl -X POST http://localhost:8000/api/analyze \
-  -H "Content-Type: application/json" \
+curl -X POST http://localhost:8000/api/analyze \\
+  -H "Content-Type: application/json" \\
   -d '{"repository_url":"https://github.com/torvalds/linux"}'
 ```
 
@@ -151,9 +149,6 @@ cd backend
 pytest
 ```
 
-The initial suite covers the health endpoint, valid and invalid GitHub URLs,
-trailing slashes, `.git` suffixes, and invalid repository input.
-
 ## Safety limits
 
 The filtering foundation defines configurable defaults:
@@ -162,13 +157,9 @@ The filtering foundation defines configurable defaults:
 - `MAX_FILE_SIZE=200 KB`
 - `MAX_TOTAL_SOURCE_SIZE=10 MB`
 
-They can be overridden through environment variables when the future evidence
-collector is implemented.
+They can be overridden through environment variables.
 
 ## Remaining work
 
-- Connect `GitHubClient` to repository metadata, trees, and file contents.
-- Apply filtered evidence collection with the safety limits.
-- Implement security, dependency, code quality, and test analyzers.
-- Add evidence-backed AI synthesis.
-- Add scoring and the final dashboard.
+- Optional UI polish for score visualization
+- Optional richer documentation analyzer signals
