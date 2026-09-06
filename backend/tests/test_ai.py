@@ -135,12 +135,15 @@ def test_parse_ai_json_with_fences() -> None:
     raw = """```json
 {\"summary\":\"ok\",\"strengths\":[],\"weaknesses\":[],\"architecture_insight\":\"\",\"documentation_insight\":\"\",\"recommendations\":[]}
 ```"""
-    # Fix: use real JSON without over-escaping in the actual file - rewritten below
+    raw = """```json
+{\"summary\":\"ok\",\"strengths\":[],\"weaknesses\":[],\"architecture_insight\":\"\",\"documentation_insight\":\"\",\"recommendations\":[]}
+```"""
+    # actual content without wrong escapes - use triple quote properly
     raw = (
         "```json\n"
-        '{"summary":"ok","strengths":[],"weaknesses":[],'
-        '"architecture_insight":"","documentation_insight":"","recommendations":[]}\n'
-        "```"
+        + '{"summary":"ok","strengths":[],"weaknesses":[],'
+        + '"architecture_insight":"","documentation_insight":"","recommendations":[]}\n'
+        + "```"
     )
     parsed = _parse_ai_json(raw)
     assert parsed is not None
