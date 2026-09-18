@@ -162,4 +162,4 @@ They can be overridden through environment variables.
 ## Remaining work
 
 - Optional UI polish for score visualization
-- Optional richer documentation analyzer signals
+- Optional richer documentation analyzer signals.
