@@ -33,4 +33,11 @@ export interface HealthReport {
   testing: TestingReport;
   languages: HealthReportLanguages;
   files: RepositoryFileSummary[];
+  strengths?: string[];
+  weaknesses?: string[];
+  /** @nullable */
+  architecture_insight?: string | null;
+  /** @nullable */
+  documentation_insight?: string | null;
+  ai_enabled?: boolean;
 }

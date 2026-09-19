@@ -140,7 +140,7 @@ export const getAnalyzeRepositoryUrl = () => {
 }
 
 /**
- * Fetches repository metadata, structure, deterministic quality and security findings, dependency metadata, and test evidence from safely filtered text-file evidence.
+ * Fetches repository evidence, runs deterministic analyzers, computes category scores, and optionally synthesizes an AI narrative via Gemini.
  * @summary Analyze a public GitHub repository
  */
 export const analyzeRepository = async (analysisRequest: AnalysisRequest, options?: Parameters<typeof customFetch>[1]): Promise<HealthReport> => {

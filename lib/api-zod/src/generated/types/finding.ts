@@ -5,6 +5,7 @@
  * GitHub Project Health Agent API
  * OpenAPI spec version: 0.1.0
  */
+import type { EvidenceItem } from './evidenceItem';
 import type { FindingSeverity } from './findingSeverity';
 
 export interface Finding {
@@ -22,4 +23,15 @@ export interface Finding {
   line: number | null;
   /** @nullable */
   recommendation: string | null;
+  evidence_items?: EvidenceItem[];
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  confidence: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  score_impact: number;
 }

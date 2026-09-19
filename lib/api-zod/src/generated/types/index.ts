@@ -11,6 +11,7 @@ export * from './categoryScore';
 export * from './categoryScoreStatus';
 export * from './dependencyReport';
 export * from './errorResponse';
+export * from './evidenceItem';
 export * from './finding';
 export * from './findingSeverity';
 export * from './healthReport';

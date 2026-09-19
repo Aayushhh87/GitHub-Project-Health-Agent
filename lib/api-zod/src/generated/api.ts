@@ -18,7 +18,7 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Fetches repository metadata, structure, deterministic quality and security findings, dependency metadata, and test evidence from safely filtered text-file evidence.
+ * Fetches repository evidence, runs deterministic analyzers, computes category scores, and optionally synthesizes an AI narrative via Gemini.
  * @summary Analyze a public GitHub repository
  */
 
@@ -42,6 +42,13 @@ export const analyzeRepositoryResponseOverallScoreMax = 100;
 export const analyzeRepositoryResponseCategoryScoresItemScoreMin = 0;
 export const analyzeRepositoryResponseCategoryScoresItemScoreMax = 100;
 
+
+
+export const analyzeRepositoryResponseFindingsItemConfidenceMin = 0;
+export const analyzeRepositoryResponseFindingsItemConfidenceMax = 1;
+
+export const analyzeRepositoryResponseFindingsItemScoreImpactMin = 0;
+export const analyzeRepositoryResponseFindingsItemScoreImpactMax = 100;
 
 export const analyzeRepositoryResponseStatisticsTotalFilesFoundMin = 0;
 
@@ -106,7 +113,15 @@ export const AnalyzeRepositoryResponse = zod.object({
   "category": zod.string(),
   "file": zod.string().nullable(),
   "line": zod.number().min(1).nullable(),
-  "recommendation": zod.string().nullable()
+  "recommendation": zod.string().nullable(),
+  "evidence_items": zod.array(zod.object({
+  "source": zod.string(),
+  "description": zod.string(),
+  "file": zod.string().nullable(),
+  "line": zod.number().min(1).nullable()
+})).optional(),
+  "confidence": zod.number().min(analyzeRepositoryResponseFindingsItemConfidenceMin).max(analyzeRepositoryResponseFindingsItemConfidenceMax),
+  "score_impact": zod.number().min(analyzeRepositoryResponseFindingsItemScoreImpactMin).max(analyzeRepositoryResponseFindingsItemScoreImpactMax)
 })),
   "recommendations": zod.array(zod.string()),
   "phase": zod.string(),
@@ -152,7 +167,12 @@ export const AnalyzeRepositoryResponse = zod.object({
   "language": zod.string().nullable(),
   "skipped": zod.boolean(),
   "skip_reason": zod.string().nullable()
-}))
+})),
+  "strengths": zod.array(zod.string()).optional(),
+  "weaknesses": zod.array(zod.string()).optional(),
+  "architecture_insight": zod.string().nullish(),
+  "documentation_insight": zod.string().nullish(),
+  "ai_enabled": zod.boolean().optional()
 })
 
 

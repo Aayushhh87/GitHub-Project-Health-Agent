@@ -17,6 +17,7 @@ import {
   Search,
   ShieldCheck,
   Terminal,
+  Sparkles,
 } from 'lucide-react';
 import type { HealthReport } from '@workspace/api-client-react';
 import {
@@ -314,15 +315,51 @@ function ReportView({ report }: { report: HealthReport }) {
                      <p className="mt-2 font-[var(--app-font-mono)] text-[10px] text-[#898982]" data-testid={`text-finding-location-${index}`}>
                        {finding.category}{finding.file ? ` · ${finding.file}` : ''}{finding.line ? `:${finding.line}` : ''}
                      </p>
-                    {finding.evidence.length > 0 && (
-                      <div className="mt-3 space-y-1.5 border-l-2 border-[#cbe24b] pl-3">
-                        {finding.evidence.map((evidence, evidenceIndex) => (
-                          <p className="font-[var(--app-font-mono)] text-[11px] leading-5 text-[#77786f]" key={`${evidence}-${evidenceIndex}`} data-testid={`text-evidence-${index}-${evidenceIndex}`}>
-                            {evidence}
-                          </p>
-                        ))}
-                      </div>
-                    )}
+                    {(finding.evidence.length > 0 || (finding.evidence_items ?? []).length > 0) && (
+  <div className="mt-3 space-y-2 border-l-2 border-[#cbe24b] pl-3">
+    {finding.evidence.map((evidence, evidenceIndex) => (
+      <p
+        className="font-[var(--app-font-mono)] text-[11px] leading-5 text-[#77786f]"
+        key={`${evidence}-${evidenceIndex}`}
+        data-testid={`text-evidence-${index}-${evidenceIndex}`}
+      >
+        {evidence}
+      </p>
+    ))}
+
+    {(finding.evidence_items ?? []).map((item, evidenceIndex) => (
+      <div
+        key={`${item.source}-${evidenceIndex}`}
+        className="rounded-[2px] bg-[#faf9f2] p-2.5"
+        data-testid={`structured-evidence-${index}-${evidenceIndex}`}
+      >
+        <p className="font-[var(--app-font-mono)] text-[10px] font-semibold text-[#52651f]">
+          {item.source}
+        </p>
+
+        <p className="mt-1 text-[11px] leading-5 text-[#77786f]">
+          {item.description}
+        </p>
+
+        {(item.file || item.line) && (
+          <p className="mt-1 font-[var(--app-font-mono)] text-[9px] text-[#9a9a92]">
+            {item.file ?? ''}
+            {item.line ? `:${item.line}` : ''}
+          </p>
+        )}
+      </div>
+    ))}
+  </div>
+)}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-[#eef1d3] px-2 py-1 font-[var(--app-font-mono)] text-[9px] text-[#52651f]">
+                          Confidence {Math.round(finding.confidence * 100)}%
+                       </span>
+
+                      <span className="rounded-full bg-[#e9e7df] px-2 py-1 font-[var(--app-font-mono)] text-[9px] text-[#62636a]">
+                      Score impact −{finding.score_impact.toFixed(1)}
+                     </span>
+                    </div>
                      {finding.recommendation && (
                        <p className="mt-3 border-t border-[#e1ded3] pt-3 text-[12px] leading-5 text-[#62636a]" data-testid={`text-finding-recommendation-${index}`}>
                          Recommendation: {finding.recommendation}
@@ -362,6 +399,102 @@ function ReportView({ report }: { report: HealthReport }) {
           )}
         </div>
       </div>
+            <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="panel rounded-[3px] p-6 sm:p-8" data-testid="section-ai-insights">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="mono-label text-[#73756f]">AI interpretation</p>
+              <h3 className="mt-1 text-lg font-bold tracking-[-0.03em] text-[#292b40]">
+                Project insights
+              </h3>
+            </div>
+            <Sparkles size={19} className="text-[#69852c]" />
+          </div>
+
+          {report.ai_enabled ? (
+            <>
+              {report.architecture_insight && (
+                <div className="mt-6 border-t border-[#e2dfd3] pt-5">
+                  <p className="mono-label text-[9px] text-[#73756f]">Architecture</p>
+                  <p className="mt-2 text-[13px] leading-6 text-[#62636a]">
+                    {report.architecture_insight}
+                  </p>
+                </div>
+              )}
+
+              {report.documentation_insight && (
+                <div className="mt-5 border-t border-[#e2dfd3] pt-5">
+                  <p className="mono-label text-[9px] text-[#73756f]">Documentation</p>
+                  <p className="mt-2 text-[13px] leading-6 text-[#62636a]">
+                    {report.documentation_insight}
+                  </p>
+                </div>
+              )}
+
+              {(report.strengths ?? []).length > 0 && (
+                <div className="mt-5 border-t border-[#e2dfd3] pt-5">
+                  <p className="mono-label text-[9px] text-[#73756f]">Strengths</p>
+                  <ul className="mt-3 space-y-2">
+                    {(report.strengths ?? []).map((item, index) => (
+                      <li
+                        key={`${item}-${index}`}
+                        className="flex gap-2 text-[12px] leading-5 text-[#62636a]"
+                      >
+                        <Check size={14} className="mt-0.5 shrink-0 text-[#69852c]" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(report.weaknesses ?? []).length > 0 && (
+                <div className="mt-5 border-t border-[#e2dfd3] pt-5">
+                  <p className="mono-label text-[9px] text-[#73756f]">Areas to improve</p>
+                  <ul className="mt-3 space-y-2">
+                    {(report.weaknesses ?? []).map((item, index) => (
+                      <li
+                        key={`${item}-${index}`}
+                        className="flex gap-2 text-[12px] leading-5 text-[#62636a]"
+                      >
+                        <CircleAlert size={14} className="mt-0.5 shrink-0 text-[#bd8c3b]" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="mt-6 border-t border-[#e2dfd3] pt-5 text-[12px] text-[#898982]">
+              AI interpretation is not available for this analysis.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-[3px] bg-[#eef1d3] p-6 sm:p-8" data-testid="section-ai-status">
+          <p className="mono-label text-[#73756f]">Analysis layer</p>
+          <h3 className="mt-1 text-lg font-bold tracking-[-0.03em] text-[#292b40]">
+            AI status
+          </h3>
+
+          <div className="mt-6 flex items-center gap-3 border-t border-[#d8ddba] pt-5">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                report.ai_enabled ? 'bg-[#69852c]' : 'bg-[#9b9b98]'
+              }`}
+            />
+            <span className="text-sm font-semibold text-[#292b40]">
+              {report.ai_enabled ? 'AI analysis enabled' : 'Deterministic analysis only'}
+            </span>
+          </div>
+
+          <p className="mt-4 text-[12px] leading-5 text-[#62636a]">
+            AI insights are generated from the evidence collected by the repository analyzers.
+          </p>
+        </div>
+      </div>
+
     </section>
   );
 }

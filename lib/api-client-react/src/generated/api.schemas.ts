@@ -119,6 +119,18 @@ export const FindingSeverity = {
   critical: 'critical',
 } as const;
 
+export interface EvidenceItem {
+  source: string;
+  description: string;
+  /** @nullable */
+  file: string | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  line: number | null;
+}
+
 export interface Finding {
   title: string;
   severity: FindingSeverity;
@@ -134,6 +146,17 @@ export interface Finding {
   line: number | null;
   /** @nullable */
   recommendation: string | null;
+  evidence_items?: EvidenceItem[];
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  confidence: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  score_impact: number;
 }
 
 export type CategoryScoreStatus = typeof CategoryScoreStatus[keyof typeof CategoryScoreStatus];
@@ -177,6 +200,13 @@ export interface HealthReport {
   testing: TestingReport;
   languages: HealthReportLanguages;
   files: RepositoryFileSummary[];
+  strengths?: string[];
+  weaknesses?: string[];
+  /** @nullable */
+  architecture_insight?: string | null;
+  /** @nullable */
+  documentation_insight?: string | null;
+  ai_enabled?: boolean;
 }
 
 export interface ErrorResponse {
