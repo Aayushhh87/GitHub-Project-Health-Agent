@@ -2,7 +2,7 @@ import ast
 import re
 from typing import Any
 
-from app.models.report import Finding, RepositorySnapshot, Severity
+from app.models.report import EvidenceItem, Finding, RepositorySnapshot, Severity
 
 MAX_FILE_LINES = 500
 MAX_FUNCTION_LINES = 80
@@ -11,6 +11,7 @@ MAX_CYCLOMATIC_COMPLEXITY = 10
 
 TODO_PATTERN = re.compile(r"\b(TODO|FIXME)\b(?:\s*[:\-]\s*)?(.*)", re.IGNORECASE)
 DEBUG_PATTERN = re.compile(r"\b(?:console\.(?:log|debug|trace)|debugger)\b")
+PYTHON_PRINT_PATTERN = re.compile(r"\bprint\s*\(")
 NESTING_NODES = (
     ast.If,
     ast.For,
@@ -34,15 +35,24 @@ def analyze_quality(snapshot: RepositorySnapshot) -> list[Finding]:
         except Exception:
             # A malformed or unusual file must not prevent other files from being read.
             findings.append(
-                Finding(
-                    title="Quality checks could not parse this file",
-                    severity=Severity.INFO,
-                    category="Code Quality",
-                    file=file.path,
-                    description="The file was collected but could not be analyzed safely.",
-                    evidence=["Static analysis skipped this file after an unexpected parser error."],
-                    recommendation="Review the file with the language-specific tooling used by the project.",
-                )
+               Finding(
+    title="Quality checks could not parse this file",
+    severity=Severity.INFO,
+    category="Code Quality",
+    file=file.path,
+    description="The file was collected but could not be analyzed safely.",
+    evidence=[
+        "Static analysis skipped this file after an unexpected parser error."
+    ],
+    evidence_items=[
+        EvidenceItem(
+            source="static_analysis",
+            description="Static analysis skipped this file after an unexpected parser error.",
+            file=file.path,
+        )
+    ],
+    recommendation="Review the file with the language-specific tooling used by the project.",
+)
             )
     return findings
 
@@ -108,6 +118,19 @@ def _python_findings(path: str, content: str) -> list[Finding]:
         ]
 
     findings: list[Finding] = []
+    for line_number, line in enumerate(content.splitlines(), start=1):
+        if PYTHON_PRINT_PATTERN.search(line):
+            findings.append(
+                _finding(
+                    title="Print statement in Python source",
+                    severity=Severity.LOW,
+                    path=path,
+                    line=line_number,
+                    description="A print() statement is present in Python source.",
+                    evidence=[line.strip()[:160]],
+                    recommendation="Use the project's logging system for intentional runtime diagnostics.",
+                )
+            )
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             end_line = getattr(node, "end_lineno", node.lineno)
@@ -267,12 +290,24 @@ def _finding(
     recommendation: str,
 ) -> Finding:
     return Finding(
-        title=title,
-        severity=severity,
-        category="Code Quality",
-        file=path,
-        line=line,
-        description=description,
-        evidence=evidence,
-        recommendation=recommendation,
+    title=title,
+    severity=severity.LOW,
+    confidence=1.0,
+    score_impact=3.0,
+
+    category="Code Quality",
+    file=path,
+    line=line,
+    description=description,
+    evidence=evidence,
+    evidence_items=[
+        EvidenceItem(
+            source="source_code",
+            description=item,
+            file=path,
+            line=line,
+        )
+        for item in evidence
+    ],
+    recommendation=recommendation,
     )

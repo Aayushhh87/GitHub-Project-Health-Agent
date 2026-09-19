@@ -6,6 +6,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from app.models.report import DependencyReport, Finding, RepositorySnapshot, Severity
+from app.models.report import EvidenceItem, Finding, RepositorySnapshot, Severity
 
 
 MANIFEST_ECOSYSTEMS = {
@@ -29,6 +30,9 @@ LOCKFILE_ECOSYSTEMS = {
     "npm-shrinkwrap.json": "JavaScript/TypeScript",
     "yarn.lock": "JavaScript/TypeScript",
     "pnpm-lock.yaml": "JavaScript/TypeScript",
+    "bun.lock": "JavaScript/TypeScript",
+    "bun.lockb": "JavaScript/TypeScript",
+
     "pipfile.lock": "Python",
     "poetry.lock": "Python",
     "go.sum": "Go",
@@ -37,10 +41,19 @@ LOCKFILE_ECOSYSTEMS = {
 }
 
 EXPECTED_LOCKFILES = {
-    "JavaScript/TypeScript": {"package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml"},
+    "JavaScript/TypeScript": {
+    "package-lock.json",
+    "npm-shrinkwrap.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "bun.lock",
+    "bun.lockb",
+},
     "Go": {"go.sum"},
     "Rust": {"cargo.lock"},
     "PHP": {"composer.lock"},
+    
+
 }
 
 
@@ -430,12 +443,29 @@ def _finding(
     recommendation: str,
 ) -> Finding:
     return Finding(
-        title=title,
-        severity=severity,
-        category="Dependencies",
-        file=file,
-        line=line,
-        description=description,
-        evidence=evidence,
-        recommendation=recommendation,
-    )
+    title=title,
+    severity=severity,
+    category="Dependencies",
+    file=file,
+    line=line,
+    description=description,
+    evidence=evidence,
+    evidence_items=[
+        EvidenceItem(
+            source="dependency_manifest",
+            description=item,
+            file=file,
+            line=line,
+        )
+        for item in evidence
+    ],
+    recommendation=recommendation,
+    confidence=1.0,
+score_impact={
+    Severity.CRITICAL: 25.0,
+    Severity.HIGH: 15.0,
+    Severity.MEDIUM: 8.0,
+    Severity.LOW: 3.0,
+    Severity.INFO: 0.0,
+}.get(severity, 0.0),
+)

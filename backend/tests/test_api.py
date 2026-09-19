@@ -110,3 +110,60 @@ def test_invalid_repository_input() -> None:
 
     assert response.status_code == 400
     assert "GitHub" in response.json()["error"]
+
+def test_ai_analysis_is_exposed_in_api(monkeypatch) -> None:
+    monkeypatch.setattr(
+        analysis_route,
+        "analyzer",
+        StubAnalyzer(),
+    )
+
+    async def fake_ai_analysis(
+        snapshot,
+        *,
+        overall_score=None,
+        category_scores=None,
+    ):
+        from app.ai.analyzer import AIAnalysisResult
+
+        return AIAnalysisResult(
+            summary="AI generated project summary.",
+            strengths=["Clear project structure"],
+            weaknesses=["Testing can be improved"],
+            architecture_insight="The project uses a layered architecture.",
+            documentation_insight="Documentation can be expanded.",
+            recommendations=["Add more integration tests"],
+        )
+
+    monkeypatch.setattr(
+        analysis_route,
+        "analyze_with_ai",
+        fake_ai_analysis,
+    )
+
+    response = client.post(
+        "/api/analyze",
+        json={
+            "repository_url": "https://github.com/owner/repository"
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["ai_enabled"] is True
+    assert data["summary"] == "AI generated project summary."
+    assert data["strengths"] == ["Clear project structure"]
+    assert data["weaknesses"] == ["Testing can be improved"]
+    assert (
+        data["architecture_insight"]
+        == "The project uses a layered architecture."
+    )
+    assert (
+        data["documentation_insight"]
+        == "Documentation can be expanded."
+    )
+    assert data["recommendations"] == [
+        "Add more integration tests"
+    ] 

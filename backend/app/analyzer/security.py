@@ -1,6 +1,7 @@
 import re
 
 from app.models.report import Finding, RepositorySnapshot, Severity
+from app.models.report import EvidenceItem, Finding, RepositorySnapshot, Severity
 
 SECRET_ASSIGNMENT = re.compile(
     r"""(?ix)
@@ -8,6 +9,9 @@ SECRET_ASSIGNMENT = re.compile(
     \s*[:=]\s*
     (['"])([^'"\r\n]{8,})(\2)
     """
+)
+PASSWORD_ASSIGNMENT = re.compile(
+    r"""(?i)\b(password|passwd|pwd)\s*[:=]\s*(['"])(.*?)\2"""
 )
 KNOWN_SECRET = re.compile(
     r"""(?x)
@@ -99,6 +103,31 @@ def _analyze_file(path: str, content: str) -> list[Finding]:
                 description=f"A literal value is assigned to {match.group(1)}.",
                 evidence=[f"{match.group(1)}={_mask_secret(value)}"],
                 recommendation="Move the value to environment-based configuration and rotate it if it was real.",
+            )
+        )
+    for match in PASSWORD_ASSIGNMENT.finditer(content):    
+        value = match.group(3).strip()
+        line = _line_number(content, match.start())
+
+        if _is_placeholder(value):
+            continue
+
+        if line in reported_secret_lines:
+            continue
+
+        reported_secret_lines.add(line)
+
+        findings.append(
+            _finding(
+                title="Hardcoded password-like value",
+                severity=Severity.HIGH,
+                path=path,
+                line=line,
+                description=f"A literal password-like value is assigned to {match.group(1)}.",
+                evidence=[
+                    f"{match.group(1)}={_mask_secret(value)}"
+                ],
+                recommendation="Move credentials to environment variables or a dedicated secret manager and rotate real credentials.",
             )
         )
 
@@ -213,12 +242,29 @@ def _finding(
     recommendation: str,
 ) -> Finding:
     return Finding(
-        title=title,
-        severity=severity,
-        category="Security",
-        file=path,
-        line=line,
-        description=description,
-        evidence=evidence,
-        recommendation=recommendation,
-    )
+    title=title,
+    severity=severity,
+    category="Security",
+    file=path,
+    line=line,
+    description=description,
+    evidence=evidence,
+    evidence_items=[
+        EvidenceItem(
+            source="source_code",
+            description=item,
+            file=path,
+            line=line,
+        )
+        for item in evidence
+    ],
+    recommendation=recommendation,
+    confidence=1.0,
+    score_impact={
+        Severity.CRITICAL: 25.0,
+        Severity.HIGH: 15.0,
+        Severity.MEDIUM: 8.0,
+        Severity.LOW: 3.0,
+        Severity.INFO: 0.0,
+    }.get(severity, 0.0),
+)

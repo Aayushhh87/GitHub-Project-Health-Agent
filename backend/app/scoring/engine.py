@@ -119,6 +119,9 @@ def _finding_deduction(finding: Finding) -> float:
     """
 
     base = finding.score_impact
+    if finding.severity == Severity.INFO:
+            return 0.0
+        
 
     if base <= 0:
         base = SEVERITY_DEDUCTIONS.get(

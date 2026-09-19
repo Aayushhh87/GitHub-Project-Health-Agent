@@ -126,3 +126,45 @@ def test_malformed_manifest_does_not_crash() -> None:
 
     assert report.manifests == ["package.json"]
     assert any(finding.title == "Malformed dependency manifest" for finding in findings)
+
+def test_bun_lockfile_is_recognized():
+    from app.analyzer.dependencies import analyze_dependencies
+    from app.models.report import RepositoryFile, RepositoryInfo, RepositorySnapshot
+
+    package_content = '{"dependencies": {"react": "^18.0.0"}}'
+    lock_content = ""
+
+    snapshot = RepositorySnapshot(
+        metadata=RepositoryInfo(
+            url="https://github.com/owner/repository",
+            owner="owner",
+            name="repository",
+            default_branch="main",
+            stars=0,
+            forks=0,
+            open_issues=0,
+        ),
+        files=[
+            RepositoryFile(
+                path="package.json",
+                size=len(package_content.encode()),
+                language="JSON",
+                content=package_content,
+            ),
+            RepositoryFile(
+                path="bun.lock",
+                size=len(lock_content.encode()),
+                language=None,
+                content=lock_content,
+            ),
+        ],
+        files_analyzed=2,
+        total_files_found=2,
+        total_source_size=len(package_content.encode()),
+    )
+
+    result = analyze_dependencies(snapshot)
+
+    report = result[0] if isinstance(result, tuple) else result
+
+    assert report is not None

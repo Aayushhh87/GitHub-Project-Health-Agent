@@ -2,6 +2,14 @@ import re
 from pathlib import PurePosixPath
 
 from app.models.report import Finding, RepositorySnapshot, Severity, TestingReport
+from app.models.report import (
+    EvidenceItem,
+    Finding,
+    RepositorySnapshot,
+    Severity,
+    TestingReport,
+    )
+
 
 
 TEST_DIRECTORY_NAMES = {"test", "tests", "__tests__", "spec"}
@@ -9,6 +17,10 @@ PYTHON_TEST_PATTERN = re.compile(r"(^test_[^/]+\.py$|^[^/]+_test\.py$)", re.I)
 JS_TEST_PATTERN = re.compile(r"\.(?:test|spec)\.(?:js|jsx|ts|tsx)$", re.I)
 GO_TEST_PATTERN = re.compile(r"_test\.go$", re.I)
 JAVA_TEST_PATTERN = re.compile(r"Test\.java$", re.I)
+CSHARP_TEST_PATTERN = re.compile(
+    r"(?:Tests?|Test)\.cs$",
+    re.I,
+)
 
 
 def analyze_tests(
@@ -37,6 +49,7 @@ def analyze_tests(
             or JS_TEST_PATTERN.search(name) is not None
             or GO_TEST_PATTERN.search(name) is not None
             or JAVA_TEST_PATTERN.search(name) is not None
+            or CSHARP_TEST_PATTERN.search(name) is not None
         )
         if is_test_file:
             test_files.append(path)
@@ -87,14 +100,24 @@ def analyze_tests(
     )
     if not tests_detected and files:
         finding = Finding(
-            title="No automated tests detected",
-            severity=Severity.MEDIUM,
-            category="Testing",
-            file=None,
-            line=None,
-            description="No common automated test files, directories, or framework configuration were found.",
-            evidence=["Test detection checked common naming conventions and framework markers."],
-            recommendation="Add automated tests appropriate to the project's runtime and critical behavior.",
+    title="No automated tests detected",
+    severity=Severity.MEDIUM,
+    category="Testing",
+    file=None,
+    line=None,
+    description="No common automated test files, directories, or framework configuration were found.",
+    evidence=[
+        "Test detection checked common naming conventions and framework markers."
+    ],
+    evidence_items=[
+        EvidenceItem(
+            source="test_detection",
+            description="Test detection checked common naming conventions and framework markers.",
         )
+    ],
+    recommendation="Add automated tests appropriate to the project's runtime and critical behavior.",
+    confidence=0.95,
+score_impact=8.0,
+)
         return report, [finding]
     return report, []

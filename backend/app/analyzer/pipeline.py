@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-
 from app.analyzer.dependencies import analyze_dependencies
+from app.analyzer.documentation import analyze_documentation
+from app.analyzer.maturity import analyze_maturity
 from app.analyzer.quality import analyze_quality
 from app.analyzer.security import analyze_security
 from app.analyzer.tests import analyze_tests
@@ -34,11 +35,13 @@ class AnalyzerPipeline:
         analyzers: list[AnalyzerFunction] | None = None,
     ) -> None:
         self.analyzers = analyzers or [
-            analyze_quality,
-            analyze_security,
-            analyze_dependencies,
-            analyze_tests,
-        ]
+    analyze_quality,
+    analyze_security,
+    analyze_dependencies,
+    analyze_tests,
+    analyze_documentation,
+    analyze_maturity,
+]
 
     def run(
         self,
@@ -88,7 +91,25 @@ class AnalyzerPipeline:
                     analyzer_name,
                 )
 
-                # One broken analyzer must never abort the entire scan.
                 continue
 
-        return findings
+        # Remove exact duplicate findings while preserving
+        # findings that occur at different locations.
+        unique_findings: list[Finding] = []
+        seen: set[tuple[str, str | None, int | None, str]] = set()
+
+        for finding in findings:
+            key = (
+                finding.title.strip().lower(),
+                finding.file,
+                finding.line,
+                finding.category.strip().lower(),
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            unique_findings.append(finding)
+
+        return unique_findings

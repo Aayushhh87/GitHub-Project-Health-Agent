@@ -73,3 +73,40 @@ def test_clean_code_has_no_security_findings() -> None:
     )
 
     assert findings == []
+
+def test_security_detects_hardcoded_password():
+    from app.analyzer.security import analyze_security
+    from app.models.report import RepositoryFile, RepositoryInfo, RepositorySnapshot
+
+    content = 'password = "my-secret-password"\n'
+
+    snapshot = RepositorySnapshot(
+        metadata=RepositoryInfo(
+            url="https://github.com/owner/repository",
+            owner="owner",
+            name="repository",
+            default_branch="main",
+            stars=0,
+            forks=0,
+            open_issues=0,
+        ),
+        files=[
+            RepositoryFile(
+                path="config.py",
+                size=len(content.encode()),
+                language="Python",
+                content=content,
+            )
+        ],
+        files_analyzed=1,
+        total_files_found=1,
+        total_source_size=len(content.encode()),
+    )
+
+    findings = analyze_security(snapshot)
+
+    assert any(
+        "password" in finding.title.lower()
+        or "secret" in finding.title.lower()
+        for finding in findings
+    )

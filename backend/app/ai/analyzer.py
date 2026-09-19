@@ -18,7 +18,9 @@ MAX_EVIDENCE_CHARS = 180
 _SYSTEM_INSTRUCTION = (
     "You are a senior software engineering reviewer. "
     "Respond with a single JSON object only (no markdown fences). "
-    "Use only the provided evidence. Never invent files, secrets, or scores. "
+    "Use only the provided evidence. Never invent files, secrets, findings, "
+"scores, or project characteristics. Treat confidence and score_impact "
+"as analyzer-provided signals, not values to recalculate. "
     "Keys required: summary (string), strengths (string array), "
     "weaknesses (string array), architecture_insight (string), "
     "documentation_insight (string), recommendations (string array). "
@@ -150,15 +152,35 @@ def _sanitize_finding(finding: Finding) -> dict[str, Any]:
         _redact_secrets(item)[:MAX_EVIDENCE_CHARS]
         for item in finding.evidence[:3]
     ]
+
+    evidence_items = [
+        {
+            "source": item.source,
+            "description": _redact_secrets(item.description)[:MAX_EVIDENCE_CHARS],
+            "file": item.file,
+            "line": item.line,
+        }
+        for item in finding.evidence_items[:3]
+    ]
+
     return {
         "title": finding.title[:160],
-        "severity": finding.severity.value if hasattr(finding.severity, "value") else str(finding.severity),
+        "severity": (
+            finding.severity.value
+            if hasattr(finding.severity, "value")
+            else str(finding.severity)
+        ),
         "category": finding.category,
         "file": finding.file,
         "line": finding.line,
         "description": finding.description[:400],
         "evidence": evidence,
-        "recommendation": (finding.recommendation or "")[:240] or None,
+        "evidence_items": evidence_items,
+        "recommendation": (
+            (finding.recommendation or "")[:240] or None
+        ),
+        "confidence": finding.confidence,
+        "score_impact": finding.score_impact,
     }
 
 
