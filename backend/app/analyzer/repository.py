@@ -1,12 +1,11 @@
+from __future__ import annotations
+
 import base64
 import binascii
 from collections import Counter
 from typing import Any
 
-from app.analyzer.quality import analyze_quality
-from app.analyzer.security import analyze_security
-from app.analyzer.dependencies import analyze_dependencies
-from app.analyzer.tests import analyze_tests
+from app.analyzer.pipeline import AnalyzerPipeline
 from app.github.client import GitHubApiError, GitHubClient
 from app.github.repository import GitHubRepository
 from app.github.url import parse_github_url
@@ -26,37 +25,66 @@ from app.utils.languages import detect_language
 
 
 class RepositoryAnalyzer:
-    """Fetch and safely normalize the evidence needed by later analyzers."""
+    """Fetch and normalize repository evidence for analysis."""
 
-    def __init__(self, client: GitHubClient | None = None) -> None:
+    def __init__(
+        self,
+        client: GitHubClient | None = None,
+        pipeline: AnalyzerPipeline | None = None,
+    ) -> None:
         self.client = client or GitHubClient()
+        self.pipeline = pipeline or AnalyzerPipeline()
 
-    async def analyze(self, repository_url: str) -> RepositorySnapshot:
+    async def analyze(
+        self,
+        repository_url: str,
+    ) -> RepositorySnapshot:
         reference = parse_github_url(repository_url)
-        repository = GitHubRepository(reference=reference, client=self.client)
+
+        repository = GitHubRepository(
+            reference=reference,
+            client=self.client,
+        )
+
         raw_metadata = await repository.metadata()
-        metadata = self._metadata(raw_metadata, reference)
-        raw_tree = await repository.tree(metadata.default_branch)
+
+        metadata = self._metadata(
+            raw_metadata,
+            reference,
+        )
+
+        raw_tree = await repository.tree(
+            metadata.default_branch,
+        )
 
         entries = raw_tree.get("tree", [])
+
         file_entries = [
             entry
             for entry in entries
-            if isinstance(entry, dict) and entry.get("type") == "blob"
+            if isinstance(entry, dict)
+            and entry.get("type") == "blob"
         ]
+
         directories = sorted(
             str(entry["path"])
             for entry in entries
-            if isinstance(entry, dict)
-            and entry.get("type") == "tree"
-            and isinstance(entry.get("path"), str)
+            if (
+                isinstance(entry, dict)
+                and entry.get("type") == "tree"
+                and isinstance(entry.get("path"), str)
+            )
         )
+
         relevant_entries = [
             entry
             for entry in file_entries
-            if isinstance(entry.get("path"), str)
-            and is_relevant_path(str(entry["path"]))
+            if (
+                isinstance(entry.get("path"), str)
+                and is_relevant_path(str(entry["path"]))
+            )
         ]
+
         relevant_entries.sort(
             key=lambda entry: (
                 file_priority(str(entry["path"])),
@@ -64,24 +92,42 @@ class RepositoryAnalyzer:
             )
         )
 
-        files_skipped = len(file_entries) - len(relevant_entries)
-        truncated = bool(raw_tree.get("truncated")) or len(relevant_entries) > MAX_FILES
+        files_skipped = (
+            len(file_entries) - len(relevant_entries)
+        )
+
+        truncated = (
+            bool(raw_tree.get("truncated"))
+            or len(relevant_entries) > MAX_FILES
+        )
+
         truncation_reason: str | None = None
+
         if raw_tree.get("truncated"):
-            truncation_reason = "GitHub truncated the repository tree response."
+            truncation_reason = (
+                "GitHub truncated the repository tree response."
+            )
+
         elif len(relevant_entries) > MAX_FILES:
             truncation_reason = (
-                f"Only the first {MAX_FILES} relevant files were selected."
+                f"Only the first {MAX_FILES} relevant files "
+                "were selected."
             )
 
         selected_entries = relevant_entries[:MAX_FILES]
-        files_skipped += max(0, len(relevant_entries) - len(selected_entries))
+
+        files_skipped += max(
+            0,
+            len(relevant_entries) - len(selected_entries),
+        )
+
         files: list[RepositoryFile] = []
         total_source_size = 0
 
         for entry in selected_entries:
             path = str(entry["path"])
             size = self._entry_size(entry)
+
             file = RepositoryFile(
                 path=path,
                 size=size,
@@ -91,35 +137,64 @@ class RepositoryAnalyzer:
             if size > MAX_FILE_SIZE:
                 file.skipped = True
                 file.skip_reason = (
-                    f"File exceeds the {MAX_FILE_SIZE // 1024} KB file-size limit."
+                    f"File exceeds the "
+                    f"{MAX_FILE_SIZE // 1024} KB "
+                    "file-size limit."
                 )
+
                 files_skipped += 1
                 files.append(file)
                 continue
 
-            if total_source_size + size > MAX_TOTAL_SOURCE_SIZE:
+            if (
+                total_source_size + size
+                > MAX_TOTAL_SOURCE_SIZE
+            ):
                 file.skipped = True
-                file.skip_reason = "Total source-size limit reached."
+                file.skip_reason = (
+                    "Total source-size limit reached."
+                )
+
                 files_skipped += 1
                 files.append(file)
                 continue
 
             try:
-                raw_contents = await repository.file_contents(
-                    path,
-                    metadata.default_branch,
+                raw_contents = (
+                    await repository.file_contents(
+                        path,
+                        metadata.default_branch,
+                    )
                 )
-                content = decode_github_text(raw_contents, MAX_FILE_SIZE)
-            except (GitHubApiError, ValueError, UnicodeError):
+
+                content = decode_github_text(
+                    raw_contents,
+                    MAX_FILE_SIZE,
+                )
+
+            except (
+                GitHubApiError,
+                ValueError,
+                UnicodeError,
+            ):
                 content = None
 
             if content is None:
                 file.skipped = True
-                file.skip_reason = "File contents were unavailable or not valid text."
+                file.skip_reason = (
+                    "File contents were unavailable "
+                    "or not valid text."
+                )
+
                 files_skipped += 1
+
             else:
                 file.content = content
-                total_source_size += len(content.encode("utf-8"))
+
+                total_source_size += len(
+                    content.encode("utf-8")
+                )
+
             files.append(file)
 
         snapshot = RepositorySnapshot(
@@ -127,61 +202,92 @@ class RepositoryAnalyzer:
             files=files,
             directories=directories,
             total_files_found=len(file_entries),
-            files_analyzed=sum(1 for file in files if not file.skipped),
+            files_analyzed=sum(
+                1
+                for file in files
+                if not file.skipped
+            ),
             files_skipped=files_skipped,
             total_source_size=total_source_size,
             truncated=truncated,
             truncation_reason=truncation_reason,
         )
-        findings: list = []
-        for analyzer in (
-            analyze_quality,
-            analyze_security,
-            analyze_dependencies,
-            analyze_tests,
-        ):
-            try:
-                result = analyzer(snapshot)
-                if isinstance(result, tuple):
-                    metadata, analyzer_findings = result
-                    if analyzer is analyze_dependencies:
-                        snapshot.dependencies = metadata
-                    else:
-                        snapshot.testing = metadata
-                    findings.extend(analyzer_findings)
-                else:
-                    findings.extend(result)
-            except Exception:
-                # A malformed manifest or test file must not abort the repository scan.
-                continue
-        snapshot.findings = findings
+
+        snapshot.findings = self.pipeline.run(
+            snapshot
+        )
+
         return snapshot
 
     @staticmethod
-    def _entry_size(entry: dict[str, Any]) -> int:
+    def _entry_size(
+        entry: dict[str, Any],
+    ) -> int:
         size = entry.get("size", 0)
-        return size if isinstance(size, int) and size >= 0 else 0
+
+        if isinstance(size, int) and size >= 0:
+            return size
+
+        return 0
 
     @staticmethod
-    def _metadata(raw: dict[str, Any], reference: Any) -> RepositoryInfo:
+    def _metadata(
+        raw: dict[str, Any],
+        reference: Any,
+    ) -> RepositoryInfo:
         owner = raw.get("owner")
-        owner_name = owner.get("login") if isinstance(owner, dict) else None
-        default_branch = raw.get("default_branch")
+
+        owner_name = (
+            owner.get("login")
+            if isinstance(owner, dict)
+            else None
+        )
+
+        default_branch = raw.get(
+            "default_branch"
+        )
+
         return RepositoryInfo(
             url=reference.normalized_url,
-            owner=str(owner_name or reference.owner),
-            name=str(raw.get("name") or reference.name),
-            description=raw.get("description")
-            if isinstance(raw.get("description"), str)
-            else None,
-            default_branch=str(default_branch or "main"),
-            stars=RepositoryAnalyzer._nonnegative_int(raw.get("stargazers_count")),
-            forks=RepositoryAnalyzer._nonnegative_int(raw.get("forks_count")),
-            open_issues=RepositoryAnalyzer._nonnegative_int(raw.get("open_issues_count")),
-            language=raw.get("language")
-            if isinstance(raw.get("language"), str)
-            else None,
-            size_kb=RepositoryAnalyzer._nonnegative_int(raw.get("size")),
+            owner=str(
+                owner_name
+                or reference.owner
+            ),
+            name=str(
+                raw.get("name")
+                or reference.name
+            ),
+            description=(
+                raw.get("description")
+                if isinstance(
+                    raw.get("description"),
+                    str,
+                )
+                else None
+            ),
+            default_branch=str(
+                default_branch or "main"
+            ),
+            stars=RepositoryAnalyzer._nonnegative_int(
+                raw.get("stargazers_count")
+            ),
+            forks=RepositoryAnalyzer._nonnegative_int(
+                raw.get("forks_count")
+            ),
+            open_issues=RepositoryAnalyzer._nonnegative_int(
+                raw.get("open_issues_count")
+            ),
+            language=(
+                raw.get("language")
+                if isinstance(
+                    raw.get("language"),
+                    str,
+                )
+                else None
+            ),
+            size_kb=RepositoryAnalyzer._nonnegative_int(
+                raw.get("size")
+            ),
             topics=[
                 str(topic)
                 for topic in raw.get("topics", [])
@@ -190,39 +296,74 @@ class RepositoryAnalyzer:
         )
 
     @staticmethod
-    def _nonnegative_int(value: Any) -> int:
-        return value if isinstance(value, int) and value >= 0 else 0
+    def _nonnegative_int(
+        value: Any,
+    ) -> int:
+        if (
+            isinstance(value, int)
+            and value >= 0
+        ):
+            return value
+
+        return 0
 
 
 def decode_github_text(
     payload: dict[str, Any] | list[dict[str, Any]],
     max_size: int = MAX_FILE_SIZE,
 ) -> str | None:
-    """Decode one GitHub Contents API file response only when it is safe text."""
-    if isinstance(payload, list) or payload.get("type") != "file":
+    """Safely decode a GitHub text-file response."""
+
+    if (
+        isinstance(payload, list)
+        or payload.get("type") != "file"
+    ):
         return None
+
     encoded = payload.get("content")
+
     if not isinstance(encoded, str):
         return None
 
     compact = "".join(encoded.split())
+
     try:
-        decoded = base64.b64decode(compact, validate=True)
-    except (ValueError, binascii.Error):
+        decoded = base64.b64decode(
+            compact,
+            validate=True,
+        )
+    except (
+        ValueError,
+        binascii.Error,
+    ):
         return None
-    if len(decoded) > max_size or b"\x00" in decoded:
+
+    if (
+        len(decoded) > max_size
+        or b"\x00" in decoded
+    ):
         return None
+
     try:
         return decoded.decode("utf-8")
     except UnicodeDecodeError:
         return None
 
 
-def language_counts(snapshot: RepositorySnapshot) -> dict[str, int]:
-    """Count detected languages for successfully analyzed files."""
+def language_counts(
+    snapshot: RepositorySnapshot,
+) -> dict[str, int]:
+    """Count detected languages."""
+
     counts = Counter(
         file.language
         for file in snapshot.files
-        if not file.skipped and file.language
+        if (
+            not file.skipped
+            and file.language
+        )
     )
-    return dict(sorted(counts.items()))
+
+    return dict(
+        sorted(counts.items())
+    )

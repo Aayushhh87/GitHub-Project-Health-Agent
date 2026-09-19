@@ -18,6 +18,15 @@ class CategoryStatus(str, Enum):
     COMPLETE = "complete"
 
 
+class EvidenceItem(BaseModel):
+    """Structured evidence supporting a finding."""
+
+    source: str
+    description: str
+    file: str | None = None
+    line: int | None = Field(default=None, ge=1)
+
+
 class AnalysisRequest(BaseModel):
     repository_url: str = Field(min_length=1)
 
@@ -58,12 +67,42 @@ class RepositoryFileSummary(BaseModel):
 class Finding(BaseModel):
     title: str
     severity: Severity
+
     description: str
-    evidence: list[str] = Field(default_factory=list)
+
     category: str = "General"
+
+    # Backward-compatible human-readable evidence.
+    evidence: list[str] = Field(default_factory=list)
+
+    # New structured evidence.
+    evidence_items: list[EvidenceItem] = Field(
+        default_factory=list
+    )
+
     file: str | None = None
-    line: int | None = Field(default=None, ge=1)
+
+    line: int | None = Field(
+        default=None,
+        ge=1,
+    )
+
     recommendation: str | None = None
+
+    # Confidence in the analyzer's finding.
+    confidence: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+    )
+
+    # Explicit scoring impact.
+    # 0 means the finding does not affect the score.
+    score_impact: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=100.0,
+    )
 
 
 class DependencyReport(BaseModel):
@@ -88,51 +127,149 @@ class TestingReport(BaseModel):
 
 class RepositorySnapshot(BaseModel):
     metadata: RepositoryInfo
-    files: list[RepositoryFile] = Field(default_factory=list)
-    directories: list[str] = Field(default_factory=list)
-    total_files_found: int = Field(default=0, ge=0)
-    files_analyzed: int = Field(default=0, ge=0)
-    files_skipped: int = Field(default=0, ge=0)
-    total_source_size: int = Field(default=0, ge=0)
+
+    files: list[RepositoryFile] = Field(
+        default_factory=list
+    )
+
+    directories: list[str] = Field(
+        default_factory=list
+    )
+
+    total_files_found: int = Field(
+        default=0,
+        ge=0,
+    )
+
+    files_analyzed: int = Field(
+        default=0,
+        ge=0,
+    )
+
+    files_skipped: int = Field(
+        default=0,
+        ge=0,
+    )
+
+    total_source_size: int = Field(
+        default=0,
+        ge=0,
+    )
+
     truncated: bool = False
+
     truncation_reason: str | None = None
-    findings: list[Finding] = Field(default_factory=list)
-    dependencies: DependencyReport = Field(default_factory=DependencyReport)
-    testing: TestingReport = Field(default_factory=TestingReport)
+
+    findings: list[Finding] = Field(
+        default_factory=list
+    )
+
+    dependencies: DependencyReport = Field(
+        default_factory=DependencyReport
+    )
+
+    testing: TestingReport = Field(
+        default_factory=TestingReport
+    )
 
 
 class RepositoryStatistics(BaseModel):
-    total_files_found: int = Field(default=0, ge=0)
-    files_analyzed: int = Field(default=0, ge=0)
-    files_skipped: int = Field(default=0, ge=0)
-    total_source_size: int = Field(default=0, ge=0)
+    total_files_found: int = Field(
+        default=0,
+        ge=0,
+    )
+
+    files_analyzed: int = Field(
+        default=0,
+        ge=0,
+    )
+
+    files_skipped: int = Field(
+        default=0,
+        ge=0,
+    )
+
+    total_source_size: int = Field(
+        default=0,
+        ge=0,
+    )
+
     truncated: bool = False
+
     truncation_reason: str | None = None
 
 
 class CategoryScore(BaseModel):
     category: str
-    score: float | None = Field(default=None, ge=0, le=100)
+
+    score: float | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
     status: CategoryStatus
 
 
 class HealthReport(BaseModel):
     repository: RepositoryInfo
-    overall_score: float | None = Field(default=None, ge=0, le=100)
-    category_scores: list[CategoryScore] = Field(default_factory=list)
+
+    overall_score: float | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
+    category_scores: list[CategoryScore] = Field(
+        default_factory=list
+    )
+
     summary: str
-    findings: list[Finding] = Field(default_factory=list)
-    recommendations: list[str] = Field(default_factory=list)
+
+    findings: list[Finding] = Field(
+        default_factory=list
+    )
+
+    recommendations: list[str] = Field(
+        default_factory=list
+    )
+
     phase: str
-    statistics: RepositoryStatistics = Field(default_factory=RepositoryStatistics)
-    stats: RepositoryStatistics = Field(default_factory=RepositoryStatistics)
-    dependencies: DependencyReport = Field(default_factory=DependencyReport)
-    testing: TestingReport = Field(default_factory=TestingReport)
-    languages: dict[str, int] = Field(default_factory=dict)
-    files: list[RepositoryFileSummary] = Field(default_factory=list)
-    # Optional AI synthesis fields (Milestone 5). Safe defaults preserve M1-4 clients.
-    strengths: list[str] = Field(default_factory=list)
-    weaknesses: list[str] = Field(default_factory=list)
+
+    statistics: RepositoryStatistics = Field(
+        default_factory=RepositoryStatistics
+    )
+
+    stats: RepositoryStatistics = Field(
+        default_factory=RepositoryStatistics
+    )
+
+    dependencies: DependencyReport = Field(
+        default_factory=DependencyReport
+    )
+
+    testing: TestingReport = Field(
+        default_factory=TestingReport
+    )
+
+    languages: dict[str, int] = Field(
+        default_factory=dict
+    )
+
+    files: list[RepositoryFileSummary] = Field(
+        default_factory=list
+    )
+
+    strengths: list[str] = Field(
+        default_factory=list
+    )
+
+    weaknesses: list[str] = Field(
+        default_factory=list
+    )
+
     architecture_insight: str | None = None
+
     documentation_insight: str | None = None
+
     ai_enabled: bool = False
